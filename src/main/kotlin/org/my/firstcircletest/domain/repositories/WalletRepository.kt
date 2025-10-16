@@ -8,5 +8,5 @@ import org.my.firstcircletest.domain.entities.WalletID
 interface WalletRepository {
     fun getWalletByUserId(userId: UserID): Wallet?
     fun createWallet(request: CreateWalletRequest): Wallet
-    fun updateWalletBalance(walletId: WalletID, balance: Long): Wallet
+    fun updateWalletBalance(walletId: WalletID, balance: Int): Wallet
 }

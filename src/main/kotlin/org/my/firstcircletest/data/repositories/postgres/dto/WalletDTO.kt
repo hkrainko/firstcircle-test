@@ -15,14 +15,14 @@ data class WalletDTO(
     var userId: String = "",
 
     @Column(name = "balance", nullable = false)
-    var balance: Long = 0
+    var balance: Int = 0
 ) {
     companion object {
         fun fromDomain(wallet: Wallet): WalletDTO {
             return WalletDTO(
                 id = wallet.id.toString(),
                 userId = wallet.userId.toString(),
-                balance = wallet.balance.toLong()
+                balance = wallet.balance
             )
         }
     }
@@ -31,7 +31,7 @@ data class WalletDTO(
         return Wallet(
             id = UUID.fromString(id),
             userId = UUID.fromString(userId),
-            balance = balance.toInt()
+            balance = balance
         )
     }
 }

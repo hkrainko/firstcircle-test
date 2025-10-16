@@ -9,7 +9,7 @@ import java.util.UUID
 data class UserDTO(
     @Id
     @Column(name = "id", nullable = false)
-    var id: String = "",
+    var id: String,
 
     @Column(name = "name", nullable = false)
     var name: String = ""
