@@ -48,3 +48,19 @@ allOpen {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+
+tasks.register<Test>("integrationTest") {
+    description = "Runs integration tests"
+    group = "verification"
+
+    useJUnitPlatform {
+        includeTags("integration")
+    }
+
+    // Alternative: filter by class name pattern
+    filter {
+        includeTestsMatching("*IntegrationTest")
+    }
+
+    shouldRunAfter(tasks.test)
+}
