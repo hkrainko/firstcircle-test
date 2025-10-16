@@ -5,19 +5,18 @@ import org.my.firstcircletest.data.repositories.postgres.dto.UserDTO
 import org.my.firstcircletest.domain.entities.CreateUserRequest
 import org.my.firstcircletest.domain.entities.User
 import org.my.firstcircletest.domain.entities.errors.DomainError
+import org.my.firstcircletest.domain.repositories.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Repository
-import org.springframework.transaction.annotation.Transactional
-import java.util.UUID
+import java.util.*
 
 @Repository
-class PgUserRepo(
+class PgUserRepository(
     private val entityManager: EntityManager
-) {
-    private val logger = LoggerFactory.getLogger(PgUserRepo::class.java)
+): UserRepository {
+    private val logger = LoggerFactory.getLogger(PgUserRepository::class.java)
 
-    @Transactional
-    fun createUser(request: CreateUserRequest): User {
+    override fun createUser(request: CreateUserRequest): User {
         return try {
             val userId = "user-${UUID.randomUUID()}"
 

@@ -5,19 +5,18 @@ import org.my.firstcircletest.data.repositories.postgres.dto.TransactionDTO
 import org.my.firstcircletest.domain.entities.Transaction
 import org.my.firstcircletest.domain.entities.TransactionType
 import org.my.firstcircletest.domain.entities.errors.DomainError
+import org.my.firstcircletest.domain.repositories.TransactionRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Repository
-import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
 @Repository
-class PgTransactionRepo(
+class PgTransactionRepository(
     private val entityManager: EntityManager
-) {
-    private val logger = LoggerFactory.getLogger(PgTransactionRepo::class.java)
+): TransactionRepository {
+    private val logger = LoggerFactory.getLogger(PgTransactionRepository::class.java)
 
-    @Transactional
-    fun create(transaction: Transaction): Transaction {
+    override fun create(transaction: Transaction): Transaction {
         return try {
             val txDto = TransactionDTO.fromDomain(transaction)
 
@@ -60,8 +59,7 @@ class PgTransactionRepo(
         }
     }
 
-    @Transactional(readOnly = true)
-    fun getTransactionsByUserId(userId: UUID): List<Transaction> {
+    override fun getTransactionsByUserId(userId: UUID): List<Transaction> {
         return try {
             val query = """
                 SELECT id, wallet_id, user_id, destination_wallet_id, destination_user_id, amount, type, created_at, updated_at, status 

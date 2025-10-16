@@ -6,19 +6,19 @@ import org.my.firstcircletest.data.repositories.postgres.dto.WalletDTO
 import org.my.firstcircletest.domain.entities.CreateWalletRequest
 import org.my.firstcircletest.domain.entities.Wallet
 import org.my.firstcircletest.domain.entities.errors.DomainError
+import org.my.firstcircletest.domain.repositories.WalletRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
 @Repository
-class PgWalletRepo(
+class PgWalletRepository(
     private val entityManager: EntityManager
-) {
-    private val logger = LoggerFactory.getLogger(PgWalletRepo::class.java)
+): WalletRepository {
+    private val logger = LoggerFactory.getLogger(PgWalletRepository::class.java)
 
-    @Transactional(readOnly = true)
-    fun getWalletByUserId(userId: UUID): Wallet {
+    override fun getWalletByUserId(userId: UUID): Wallet {
         return try {
             val query = """
                 SELECT id, user_id, balance 
@@ -41,7 +41,7 @@ class PgWalletRepo(
     }
 
     @Transactional
-    fun createWallet(request: CreateWalletRequest): Wallet {
+    override fun createWallet(request: CreateWalletRequest): Wallet {
         return try {
             val walletId = "wallet-${UUID.randomUUID()}"
 
@@ -74,8 +74,7 @@ class PgWalletRepo(
         }
     }
 
-    @Transactional
-    fun updateWalletBalance(walletId: UUID, balance: Long): Wallet {
+    override fun updateWalletBalance(walletId: UUID, balance: Long): Wallet {
         return try {
             val query = """
                 UPDATE wallets 
