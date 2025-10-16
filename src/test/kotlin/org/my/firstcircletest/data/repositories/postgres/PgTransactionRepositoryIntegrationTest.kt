@@ -25,17 +25,17 @@ class PgTransactionRepositoryIntegrationTest {
     @Autowired
     private lateinit var entityManager: EntityManager
 
-    private lateinit var testUserId: UUID
-    private lateinit var testWalletId: UUID
-    private lateinit var testDestinationUserId: UUID
-    private lateinit var testDestinationWalletId: UUID
+    private lateinit var testUserId: String
+    private lateinit var testWalletId: String
+    private lateinit var testDestinationUserId: String
+    private lateinit var testDestinationWalletId: String
 
     @BeforeEach
     fun setUp() {
-        testUserId = UUID.randomUUID()
-        testWalletId = UUID.randomUUID()
-        testDestinationUserId = UUID.randomUUID()
-        testDestinationWalletId = UUID.randomUUID()
+        testUserId = "user-${UUID.randomUUID()}"
+        testWalletId = "wallet-${UUID.randomUUID()}"
+        testDestinationUserId = "user-${UUID.randomUUID()}"
+        testDestinationWalletId = "wallet-${UUID.randomUUID()}"
 
         // Create test users
         entityManager.createNativeQuery(
@@ -78,7 +78,7 @@ class PgTransactionRepositoryIntegrationTest {
     fun `create should persist transaction successfully`() {
         // Given
         val transaction = Transaction(
-            id = UUID.randomUUID(),
+            id = UUID.randomUUID().toString(),
             walletId = testWalletId,
             userId = testUserId,
             amount = 10000,
@@ -107,7 +107,7 @@ class PgTransactionRepositoryIntegrationTest {
     fun `create should persist transfer transaction with destination details`() {
         // Given
         val transaction = Transaction(
-            id = UUID.randomUUID(),
+            id = UUID.randomUUID().toString(),
             walletId = testWalletId,
             userId = testUserId,
             destinationWalletId = testDestinationWalletId,
@@ -132,7 +132,7 @@ class PgTransactionRepositoryIntegrationTest {
     fun `getTransactionsByUserId should return transactions where user is sender`() {
         // Given
         val transaction1 = Transaction(
-            id = UUID.randomUUID(),
+            id = UUID.randomUUID().toString(),
             walletId = testWalletId,
             userId = testUserId,
             amount = 1000,
@@ -142,7 +142,7 @@ class PgTransactionRepositoryIntegrationTest {
         )
 
         val transaction2 = Transaction(
-            id = UUID.randomUUID(),
+            id = UUID.randomUUID().toString(),
             walletId = testWalletId,
             userId = testUserId,
             amount = 2000,
@@ -166,8 +166,8 @@ class PgTransactionRepositoryIntegrationTest {
     @Test
     fun `getTransactionsByUserId should return transactions where user is recipient`() {
         // Given
-        val senderUserId = UUID.randomUUID()
-        val senderWalletId = UUID.randomUUID()
+        val senderUserId = "user-${UUID.randomUUID()}"
+        val senderWalletId = "wallet-${UUID.randomUUID()}"
 
         // Create sender user and wallet
         entityManager.createNativeQuery(
@@ -188,7 +188,7 @@ class PgTransactionRepositoryIntegrationTest {
         entityManager.flush()
 
         val transferTransaction = Transaction(
-            id = UUID.randomUUID(),
+            id = UUID.randomUUID().toString(),
             walletId = senderWalletId,
             userId = senderUserId,
             destinationWalletId = testWalletId,
@@ -215,7 +215,7 @@ class PgTransactionRepositoryIntegrationTest {
         // Given
         val now = LocalDateTime.now()
         val transaction1 = Transaction(
-            id = UUID.randomUUID(),
+            id = UUID.randomUUID().toString(),
             walletId = testWalletId,
             userId = testUserId,
             amount = 1000,
@@ -225,7 +225,7 @@ class PgTransactionRepositoryIntegrationTest {
         )
 
         val transaction2 = Transaction(
-            id = UUID.randomUUID(),
+            id = UUID.randomUUID().toString(),
             walletId = testWalletId,
             userId = testUserId,
             amount = 2000,
@@ -235,7 +235,7 @@ class PgTransactionRepositoryIntegrationTest {
         )
 
         val transaction3 = Transaction(
-            id = UUID.randomUUID(),
+            id = UUID.randomUUID().toString(),
             walletId = testWalletId,
             userId = testUserId,
             amount = 3000,
@@ -261,7 +261,7 @@ class PgTransactionRepositoryIntegrationTest {
     @Test
     fun `getTransactionsByUserId should return empty list when no transactions found`() {
         // Given
-        val nonExistentUserId = UUID.randomUUID()
+        val nonExistentUserId = "user-${UUID.randomUUID()}"
 
         // When
         val results = pgTransactionRepository.getTransactionsByUserId(nonExistentUserId)
@@ -273,8 +273,8 @@ class PgTransactionRepositoryIntegrationTest {
     @Test
     fun `getTransactionsByUserId should return both sent and received transactions`() {
         // Given
-        val otherUserId = UUID.randomUUID()
-        val otherWalletId = UUID.randomUUID()
+        val otherUserId = "user-${UUID.randomUUID()}"
+        val otherWalletId = "wallet-${UUID.randomUUID()}"
 
         // Create other user and wallet
         entityManager.createNativeQuery(
@@ -296,7 +296,7 @@ class PgTransactionRepositoryIntegrationTest {
 
         // Transaction sent by testUser
         val sentTransaction = Transaction(
-            id = UUID.randomUUID(),
+            id = UUID.randomUUID().toString(),
             walletId = testWalletId,
             userId = testUserId,
             destinationWalletId = otherWalletId,
@@ -309,7 +309,7 @@ class PgTransactionRepositoryIntegrationTest {
 
         // Transaction received by testUser
         val receivedTransaction = Transaction(
-            id = UUID.randomUUID(),
+            id = UUID.randomUUID().toString(),
             walletId = otherWalletId,
             userId = otherUserId,
             destinationWalletId = testWalletId,
@@ -336,7 +336,7 @@ class PgTransactionRepositoryIntegrationTest {
     fun `create should handle different transaction types correctly`() {
         // Given
         val depositTransaction = Transaction(
-            id = UUID.randomUUID(),
+            id = UUID.randomUUID().toString(),
             walletId = testWalletId,
             userId = testUserId,
             amount = 1000,
@@ -346,7 +346,7 @@ class PgTransactionRepositoryIntegrationTest {
         )
 
         val withdrawalTransaction = Transaction(
-            id = UUID.randomUUID(),
+            id = UUID.randomUUID().toString(),
             walletId = testWalletId,
             userId = testUserId,
             amount = 500,
@@ -370,7 +370,7 @@ class PgTransactionRepositoryIntegrationTest {
     fun `create should handle different transaction statuses correctly`() {
         // Given
         val completedTransaction = Transaction(
-            id = UUID.randomUUID(),
+            id = UUID.randomUUID().toString(),
             walletId = testWalletId,
             userId = testUserId,
             amount = 1000,
@@ -380,7 +380,7 @@ class PgTransactionRepositoryIntegrationTest {
         )
 
         val pendingTransaction = Transaction(
-            id = UUID.randomUUID(),
+            id = UUID.randomUUID().toString(),
             walletId = testWalletId,
             userId = testUserId,
             amount = 500,

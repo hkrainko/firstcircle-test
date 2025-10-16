@@ -1,12 +1,14 @@
 package org.my.firstcircletest.data.repositories.postgres.dto
 
-import jakarta.persistence.*
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.Id
+import jakarta.persistence.Table
 import org.my.firstcircletest.domain.entities.Wallet
-import java.util.UUID
 
 @Entity
 @Table(name = "wallets")
-data class WalletDTO(
+class WalletDTO(
     @Id
     @Column(name = "id", nullable = false)
     var id: String = "",
@@ -20,8 +22,8 @@ data class WalletDTO(
     companion object {
         fun fromDomain(wallet: Wallet): WalletDTO {
             return WalletDTO(
-                id = wallet.id.toString(),
-                userId = wallet.userId.toString(),
+                id = wallet.id,
+                userId = wallet.userId,
                 balance = wallet.balance
             )
         }
@@ -29,8 +31,8 @@ data class WalletDTO(
 
     fun toDomain(): Wallet {
         return Wallet(
-            id = UUID.fromString(id),
-            userId = UUID.fromString(userId),
+            id = id,
+            userId = userId,
             balance = balance
         )
     }

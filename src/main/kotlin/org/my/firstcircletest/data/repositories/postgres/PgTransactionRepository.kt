@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.stereotype.Repository
-import java.util.UUID
 
 @Repository
 class PgTransactionRepository(
@@ -27,7 +26,7 @@ class PgTransactionRepository(
         }
     }
 
-    override fun getTransactionsByUserId(userId: UUID): List<Transaction> {
+    override fun getTransactionsByUserId(userId: String): List<Transaction> {
         return try {
             val results = transactionJpaRepository.findByUserIdOrDestinationUserId(userId.toString())
             results.map { it.toDomain() }

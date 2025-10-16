@@ -1,8 +1,6 @@
 package org.my.firstcircletest.domain.entities
 
-import java.util.UUID
-
-typealias WalletID = UUID
+typealias WalletID = String
 
 data class Wallet(
     val id: WalletID,

@@ -1,12 +1,14 @@
 package org.my.firstcircletest.data.repositories.postgres.dto
 
-import jakarta.persistence.*
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.Id
+import jakarta.persistence.Table
 import org.my.firstcircletest.domain.entities.User
-import java.util.UUID
 
 @Entity
 @Table(name = "users")
-data class UserDTO(
+class UserDTO(
     @Id
     @Column(name = "id", nullable = false)
     var id: String,
@@ -17,7 +19,7 @@ data class UserDTO(
     companion object {
         fun fromDomain(user: User): UserDTO {
             return UserDTO(
-                id = user.id.toString(),
+                id = user.id,
                 name = user.name
             )
         }
@@ -25,7 +27,7 @@ data class UserDTO(
 
     fun toDomain(): User {
         return User(
-            id = UUID.fromString(id),
+            id = id,
             name = name
         )
     }

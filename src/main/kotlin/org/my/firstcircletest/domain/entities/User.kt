@@ -1,8 +1,6 @@
 package org.my.firstcircletest.domain.entities
 
-import java.util.UUID
-
-typealias UserID = UUID
+typealias UserID = String
 
 data class User(
     val id: UserID,

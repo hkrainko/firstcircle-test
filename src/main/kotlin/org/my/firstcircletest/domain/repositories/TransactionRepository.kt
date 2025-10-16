@@ -5,5 +5,5 @@ import org.my.firstcircletest.domain.entities.UserID
 
 interface TransactionRepository {
     fun create(transaction: Transaction): Transaction
-    fun getTransactionsByUserId(userId: UserID): List<Transaction>
+    fun getTransactionsByUserId(userId: String): List<Transaction>
 }

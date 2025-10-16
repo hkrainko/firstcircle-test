@@ -1,15 +1,16 @@
 package org.my.firstcircletest.data.repositories.postgres.dto
 
 import jakarta.persistence.*
-import org.my.firstcircletest.domain.entities.*
+import org.my.firstcircletest.domain.entities.Transaction
+import org.my.firstcircletest.domain.entities.TransactionStatus
+import org.my.firstcircletest.domain.entities.TransactionType
 import org.my.firstcircletest.domain.entities.errors.DomainError
 import org.slf4j.LoggerFactory
 import java.time.LocalDateTime
-import java.util.UUID
 
 @Entity
 @Table(name = "transactions")
-data class TransactionDTO(
+class TransactionDTO(
     @Id
     @Column(name = "id", nullable = false)
     var id: String = "",
@@ -76,11 +77,11 @@ data class TransactionDTO(
         }
 
         return Transaction(
-            id = UUID.fromString(id),
-            walletId = UUID.fromString(walletId),
-            userId = UUID.fromString(userId),
-            destinationWalletId = destinationWalletId?.let { UUID.fromString(it) },
-            destinationUserId = destinationUserId?.let { UUID.fromString(it) },
+            id = id,
+            walletId = walletId,
+            userId = userId,
+            destinationWalletId = destinationWalletId,
+            destinationUserId = destinationUserId,
             amount = amount,
             type = transactionType,
             createdAt = createdAt,

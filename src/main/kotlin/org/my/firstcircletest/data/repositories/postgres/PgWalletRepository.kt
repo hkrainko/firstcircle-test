@@ -1,5 +1,6 @@
 package org.my.firstcircletest.data.repositories.postgres
 
+import jakarta.persistence.EntityManager
 import org.my.firstcircletest.data.repositories.postgres.dto.WalletDTO
 import org.my.firstcircletest.domain.entities.CreateWalletRequest
 import org.my.firstcircletest.domain.entities.Wallet
@@ -14,11 +15,12 @@ import java.util.UUID
 
 @Repository
 class PgWalletRepository(
-    private val walletJpaRepository: WalletJpaRepository
+    private val walletJpaRepository: WalletJpaRepository,
+    private val entityManager: EntityManager
 ) : WalletRepository {
     private val logger = LoggerFactory.getLogger(PgWalletRepository::class.java)
 
-    override fun getWalletByUserId(userId: UUID): Wallet {
+    override fun getWalletByUserId(userId: String): Wallet {
         return try {
             val result = walletJpaRepository.findByUserId(userId.toString())
                 .orElseThrow {
@@ -54,7 +56,8 @@ class PgWalletRepository(
         }
     }
 
-    override fun updateWalletBalance(walletId: UUID, balance: Int): Wallet {
+    @Transactional
+    override fun updateWalletBalance(walletId: String, balance: Int): Wallet {
         return try {
             val wallet = walletJpaRepository.findById(walletId.toString())
                 .orElseThrow {
@@ -63,6 +66,7 @@ class PgWalletRepository(
 
             wallet.balance = balance
             val saved = walletJpaRepository.save(wallet)
+            entityManager.flush()
             saved.toDomain()
         } catch (e: DomainError) {
             logger.error("PgWalletRepo.updateWalletBalance: no wallet found with ID $walletId")

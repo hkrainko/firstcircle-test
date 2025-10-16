@@ -1,10 +1,10 @@
 package org.my.firstcircletest.domain.entities
 
 import java.time.LocalDateTime
-import java.util.UUID
+import java.util.*
 
 
-typealias TransactionID = UUID
+typealias TransactionID = String
 
 data class Transaction(
     val id: TransactionID,
@@ -59,7 +59,7 @@ data class Transaction(
         }
 
         private fun generateTransactionID(): TransactionID {
-            return UUID.randomUUID()
+            return UUID.randomUUID().toString()
         }
     }
 }
