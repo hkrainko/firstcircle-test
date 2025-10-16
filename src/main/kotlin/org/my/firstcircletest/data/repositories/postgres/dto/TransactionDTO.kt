@@ -62,14 +62,14 @@ data class TransactionDTO(
 
     fun toDomain(): Transaction {
         val transactionType = try {
-            TransactionType.valueOf(type.uppercase())
+            TransactionType.valueOf(type)
         } catch (e: IllegalArgumentException) {
             logger.error("TransactionDTO.toDomain: error converting type: {}", type, e)
             throw DomainError.InvalidTransactionTypeException("Invalid transaction type: $type")
         }
 
         val transactionStatus = try {
-            TransactionStatus.valueOf(status.uppercase())
+            TransactionStatus.valueOf(status)
         } catch (e: IllegalArgumentException) {
             logger.error("TransactionDTO.toDomain: error converting status: {}", status, e)
             throw DomainError.InvalidTransactionStatusException("Invalid transaction status: $status")

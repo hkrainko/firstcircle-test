@@ -1,12 +1,12 @@
 package org.my.firstcircletest.data.repositories.postgres
 
+import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.my.firstcircletest.domain.entities.Transaction
 import org.my.firstcircletest.domain.entities.TransactionStatus
 import org.my.firstcircletest.domain.entities.TransactionType
-import org.my.firstcircletest.domain.repositories.TransactionRepository
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
 import org.springframework.context.annotation.Import
@@ -22,6 +22,9 @@ class PgTransactionRepositoryIntegrationTest {
     @Autowired
     private lateinit var pgTransactionRepository: PgTransactionRepository
 
+    @Autowired
+    private lateinit var entityManager: EntityManager
+
     private lateinit var testUserId: UUID
     private lateinit var testWalletId: UUID
     private lateinit var testDestinationUserId: UUID
@@ -33,6 +36,42 @@ class PgTransactionRepositoryIntegrationTest {
         testWalletId = UUID.randomUUID()
         testDestinationUserId = UUID.randomUUID()
         testDestinationWalletId = UUID.randomUUID()
+
+        // Create test users
+        entityManager.createNativeQuery(
+            "INSERT INTO users (id, name, created_at) VALUES (?, ?, ?)"
+        ).apply {
+            setParameter(1, testUserId.toString())
+            setParameter(2, "Test User ${testUserId}")
+            setParameter(3, LocalDateTime.now())
+        }.executeUpdate()
+
+        entityManager.createNativeQuery(
+            "INSERT INTO users (id, name, created_at) VALUES (?, ?, ?)"
+        ).apply {
+            setParameter(1, testDestinationUserId.toString())
+            setParameter(2, "Destination User ${testDestinationUserId}")
+            setParameter(3, LocalDateTime.now())
+        }.executeUpdate()
+
+        // Create test wallets
+        entityManager.createNativeQuery(
+            "INSERT INTO wallets (id, user_id, balance) VALUES (?, ?, ?)"
+        ).apply {
+            setParameter(1, testWalletId.toString())
+            setParameter(2, testUserId.toString())
+            setParameter(3, 100000L)
+        }.executeUpdate()
+
+        entityManager.createNativeQuery(
+            "INSERT INTO wallets (id, user_id, balance) VALUES (?, ?, ?)"
+        ).apply {
+            setParameter(1, testDestinationWalletId.toString())
+            setParameter(2, testDestinationUserId.toString())
+            setParameter(3, 50000L)
+        }.executeUpdate()
+
+        entityManager.flush()
     }
 
     @Test
@@ -130,6 +169,24 @@ class PgTransactionRepositoryIntegrationTest {
         val senderUserId = UUID.randomUUID()
         val senderWalletId = UUID.randomUUID()
 
+        // Create sender user and wallet
+        entityManager.createNativeQuery(
+            "INSERT INTO users (id, name, created_at) VALUES (?, ?, ?)"
+        ).apply {
+            setParameter(1, senderUserId.toString())
+            setParameter(2, "Sender User ${senderUserId}")
+            setParameter(3, LocalDateTime.now())
+        }.executeUpdate()
+
+        entityManager.createNativeQuery(
+            "INSERT INTO wallets (id, user_id, balance) VALUES (?, ?, ?)"
+        ).apply {
+            setParameter(1, senderWalletId.toString())
+            setParameter(2, senderUserId.toString())
+            setParameter(3, 100000L)
+        }.executeUpdate()
+        entityManager.flush()
+
         val transferTransaction = Transaction(
             id = UUID.randomUUID(),
             walletId = senderWalletId,
@@ -218,6 +275,24 @@ class PgTransactionRepositoryIntegrationTest {
         // Given
         val otherUserId = UUID.randomUUID()
         val otherWalletId = UUID.randomUUID()
+
+        // Create other user and wallet
+        entityManager.createNativeQuery(
+            "INSERT INTO users (id, name, created_at) VALUES (?, ?, ?)"
+        ).apply {
+            setParameter(1, otherUserId.toString())
+            setParameter(2, "Other User ${otherUserId}")
+            setParameter(3, LocalDateTime.now())
+        }.executeUpdate()
+
+        entityManager.createNativeQuery(
+            "INSERT INTO wallets (id, user_id, balance) VALUES (?, ?, ?)"
+        ).apply {
+            setParameter(1, otherWalletId.toString())
+            setParameter(2, otherUserId.toString())
+            setParameter(3, 75000L)
+        }.executeUpdate()
+        entityManager.flush()
 
         // Transaction sent by testUser
         val sentTransaction = Transaction(
