@@ -14,6 +14,7 @@ import org.my.firstcircletest.domain.repositories.WalletRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.interceptor.TransactionAspectSupport
 
 @Service
 class DepositUseCase(
@@ -25,8 +26,12 @@ class DepositUseCase(
 
     @Transactional
     suspend fun invoke(userId: UserID, amount: Int): Either<DomainError, Wallet> = either {
-        ensure(userId.isNotBlank()) { DomainError.InvalidUserIdException() }
-        ensure(amount > 0) { DomainError.NonPositiveAmountException() }
+        ensure(userId.isNotBlank()) {
+            DomainError.InvalidUserIdException()
+        }
+        ensure(amount > 0) {
+            DomainError.NonPositiveAmountException()
+        }
 
         val wallet = walletRepository.getWalletByUserId(userId)
         ensure(wallet != null) {
@@ -47,7 +52,14 @@ class DepositUseCase(
             status = TransactionStatus.COMPLETED,
         )
 
-        transactionRepository.create(transaction)
+        Either.catch {
+            transactionRepository.create(transaction)
+        }.mapLeft {
+            logger.error("Failed to create transaction for user $userId", it)
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
+            DomainError.TransactionCreationException()
+        }.bind()
+
         logger.info("Deposit successful for user $userId, new balance: ${updatedWallet.balance}")
 
         updatedWallet

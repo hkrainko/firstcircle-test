@@ -12,6 +12,7 @@ import org.my.firstcircletest.domain.repositories.WalletRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.interceptor.TransactionAspectSupport
 
 @Service
 class CreateUserUseCase(
@@ -26,7 +27,13 @@ class CreateUserUseCase(
         val user = userRepository.createUser(request)
         logger.info("User created successfully: ${user.id}")
 
-        createWalletForNewUser(user.id).bind()
+        val walletResult = createWalletForNewUser(user.id)
+
+        walletResult.onLeft {
+            logger.error("Failed to create wallet for user: ${user.id}, marking transaction for rollback")
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
+        }.bind()
+
         logger.info("Wallet created for user: ${user.id}")
 
         user

@@ -12,6 +12,7 @@ import org.my.firstcircletest.domain.repositories.WalletRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.interceptor.TransactionAspectSupport
 
 @Service
 class TransferUseCase(
@@ -53,9 +54,16 @@ class TransferUseCase(
         val toWallet = walletRepository.getWalletByUserId(transfer.toUserId)
         ensure(toWallet != null) {
             logger.error("Wallet not found for user ${transfer.toUserId}")
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
             DomainError.WalletNotFoundException()
         }
-        val updatedToWallet = walletRepository.updateWalletBalance(toWallet.id, toWallet.balance + transfer.amount)
+        val updatedToWallet = Either.catch {
+            walletRepository.updateWalletBalance(toWallet.id, toWallet.balance + transfer.amount)
+        }.mapLeft {
+            logger.error("Failed to update wallet balance for user ${transfer.toUserId}", it)
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
+            DomainError.WalletUpdateException()
+        }.bind()
         logger.info("Added ${transfer.amount} to user ${transfer.toUserId}")
 
         // 3. Create a single transfer transaction record
@@ -68,7 +76,14 @@ class TransferUseCase(
             status = TransactionStatus.COMPLETED
         )
 
-        transactionRepository.create(transaction)
+        Either.catch {
+            transactionRepository.create(transaction)
+        }.mapLeft {
+            logger.error("Failed to create transaction for transfer from ${transfer.fromUserId} to ${transfer.toUserId}", it)
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
+            DomainError.TransactionCreationException()
+        }.bind()
+
         logger.info("Transfer of ${transfer.amount} from user ${transfer.fromUserId} to user ${transfer.toUserId} completed successfully")
 
         transfer

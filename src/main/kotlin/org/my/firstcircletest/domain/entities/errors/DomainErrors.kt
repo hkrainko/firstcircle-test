@@ -12,4 +12,6 @@ sealed class DomainError(message: String) : Exception(message) {
     data class InsufficientBalanceException(val errorMessage: String = "insufficient balance") : DomainError(errorMessage)
     data class SameUserTransferException(val errorMessage: String = "cannot transfer to the same user") : DomainError(errorMessage)
     data class InvalidUserNameException(val errorMessage: String = "invalid user name") : DomainError(errorMessage)
+    data class TransactionCreationException(val errorMessage: String = "failed to create transaction") : DomainError(errorMessage)
+    data class WalletUpdateException(val errorMessage: String = "failed to update wallet") : DomainError(errorMessage)
 }

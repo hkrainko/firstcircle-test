@@ -14,6 +14,7 @@ import org.my.firstcircletest.domain.repositories.WalletRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.interceptor.TransactionAspectSupport
 
 @Service
 class WithdrawUseCase(
@@ -27,16 +28,19 @@ class WithdrawUseCase(
     suspend fun invoke(userId: UserID, amount: Int): Either<DomainError, Wallet> = either {
         ensure(userId.isNotBlank()) {
             logger.error("Invalid user ID: $userId")
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
             DomainError.InvalidUserIdException()
         }
         ensure(amount > 0) {
             logger.error("Withdrawal amount must be positive: $amount")
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
             DomainError.NonPositiveAmountException()
         }
 
         val wallet = walletRepository.getWalletByUserId(userId)
         ensure(wallet != null) {
             logger.error("Wallet not found for user $userId")
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
             DomainError.WalletNotFoundException()
         }
 
@@ -44,6 +48,7 @@ class WithdrawUseCase(
 
         ensure(wallet.balance >= amount) {
             logger.error("Insufficient balance for user $userId: requested $amount, available ${wallet.balance}")
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
             DomainError.InsufficientBalanceException()
         }
 
@@ -58,7 +63,14 @@ class WithdrawUseCase(
             status = TransactionStatus.COMPLETED
         )
 
-        transactionRepository.create(transactions)
+        Either.catch {
+            transactionRepository.create(transactions)
+        }.mapLeft {
+            logger.error("Failed to create transaction for user $userId", it)
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
+            DomainError.TransactionCreationException()
+        }.bind()
+
         logger.info("Withdrawal of $amount for user $userId completed successfully")
 
         updatedWallet
