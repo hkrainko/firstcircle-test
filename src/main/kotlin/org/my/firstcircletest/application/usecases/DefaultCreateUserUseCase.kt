@@ -6,26 +6,28 @@ import org.my.firstcircletest.domain.entities.CreateUserRequest
 import org.my.firstcircletest.domain.entities.CreateWalletRequest
 import org.my.firstcircletest.domain.entities.User
 import org.my.firstcircletest.domain.entities.UserID
-import org.my.firstcircletest.domain.entities.errors.DomainError
 import org.my.firstcircletest.domain.repositories.UserRepository
 import org.my.firstcircletest.domain.repositories.WalletRepository
+import org.my.firstcircletest.domain.usecases.CreateUserError
+import org.my.firstcircletest.domain.usecases.CreateUserUseCase
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.interceptor.TransactionAspectSupport
 
 @Service
-class CreateUserUseCase(
+class DefaultCreateUserUseCase(
     private val userRepository: UserRepository,
     private val walletRepository: WalletRepository
-) {
+) : CreateUserUseCase {
 
-    private val logger = LoggerFactory.getLogger(CreateUserUseCase::class.java)
+    private val logger = LoggerFactory.getLogger(DefaultCreateUserUseCase::class.java)
 
     @Transactional
-    suspend fun invoke(request: CreateUserRequest): Either<DomainError, User> = either {
-        val user = userRepository.createUser(request).onLeft {
+    override suspend fun invoke(request: CreateUserRequest): Either<CreateUserError, User> = either {
+        val user = userRepository.createUser(request).mapLeft {
             logger.error("Failed to create user: ${it.message}")
+            CreateUserError.UserCreationFailed()
         }.bind()
 
         logger.info("User created successfully: ${user.id}")
@@ -40,11 +42,13 @@ class CreateUserUseCase(
         user
     }
 
-    private fun createWalletForNewUser(userId: UserID): Either<DomainError, Unit> = either {
+    private fun createWalletForNewUser(userId: UserID): Either<CreateUserError, Unit> = either {
         val request = CreateWalletRequest(
             userId = userId,
             balance = 0
         )
-        walletRepository.createWallet(request)
+        walletRepository.createWallet(request).mapLeft {
+            CreateUserError.WalletCreationFailed()
+        }.bind()
     }
 }

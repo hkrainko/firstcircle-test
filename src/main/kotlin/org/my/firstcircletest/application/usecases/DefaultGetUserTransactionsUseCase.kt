@@ -5,28 +5,30 @@ import arrow.core.raise.either
 import arrow.core.raise.ensure
 import org.my.firstcircletest.domain.entities.Transaction
 import org.my.firstcircletest.domain.entities.UserID
-import org.my.firstcircletest.domain.entities.errors.DomainError
 import org.my.firstcircletest.domain.repositories.TransactionRepository
+import org.my.firstcircletest.domain.usecases.GetUserTransactionsError
+import org.my.firstcircletest.domain.usecases.GetUserTransactionsUseCase
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class GetUserTransactionsUseCase(
+class DefaultGetUserTransactionsUseCase(
     private val transactionRepository: TransactionRepository
-) {
+) : GetUserTransactionsUseCase {
 
-    private val logger = LoggerFactory.getLogger(GetUserTransactionsUseCase::class.java)
+    private val logger = LoggerFactory.getLogger(DefaultGetUserTransactionsUseCase::class.java)
 
     @Transactional(readOnly = true)
-    suspend fun invoke(userId: UserID): Either<DomainError, List<Transaction>> = either {
+    override suspend fun invoke(userId: UserID): Either<GetUserTransactionsError, List<Transaction>> = either {
         ensure(userId.isNotBlank()) {
             logger.error("Invalid user ID: $userId")
-            DomainError.InvalidUserIdException()
+            GetUserTransactionsError.InvalidUserId()
         }
 
-        transactionRepository.getTransactionsByUserId(userId).onLeft {
+        transactionRepository.getTransactionsByUserId(userId).mapLeft {
             logger.error("Failed to retrieve transactions for user $userId: ${it.message}")
+            GetUserTransactionsError.TransactionRetrievalFailed()
         }.onRight { logger.info("Retrieved ${it.size} transactions for user $userId") }.bind()
     }
 }
