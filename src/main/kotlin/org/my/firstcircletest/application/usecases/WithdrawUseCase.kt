@@ -1,5 +1,8 @@
 package org.my.firstcircletest.application.usecases
 
+import arrow.core.Either
+import arrow.core.raise.either
+import arrow.core.raise.ensure
 import org.my.firstcircletest.domain.entities.Transaction
 import org.my.firstcircletest.domain.entities.TransactionStatus
 import org.my.firstcircletest.domain.entities.TransactionType
@@ -21,48 +24,43 @@ class WithdrawUseCase(
     private val logger = LoggerFactory.getLogger(WithdrawUseCase::class.java)
 
     @Transactional
-    suspend fun invoke(userId: UserID, amount: Int): Wallet {
-        if (userId.isBlank()) {
+    suspend fun invoke(userId: UserID, amount: Int): Either<DomainError, Wallet> = either {
+        ensure(userId.isNotBlank()) {
             logger.error("Invalid user ID: $userId")
-            throw DomainError.InvalidUserIdException()
+            DomainError.InvalidUserIdException()
         }
-        if (amount <= 0) {
+        ensure(amount > 0) {
             logger.error("Withdrawal amount must be positive: $amount")
-            throw DomainError.NonPositiveAmountException()
+            DomainError.NonPositiveAmountException()
         }
 
-        try {
-            val wallet = walletRepository.getWalletByUserId(userId)
-            if (wallet == null) {
-                logger.error("Wallet not found for user $userId")
-                throw DomainError.WalletNotFoundException()
-            }
-
-            logger.info("Retrieved wallet for user $userId")
-
-            if (wallet.balance < amount) {
-                logger.error("Insufficient balance for user $userId: requested $amount, available ${wallet.balance}")
-                throw DomainError.InsufficientBalanceException()
-            }
-
-            val updatedWallet = walletRepository.updateWalletBalance(wallet.id, wallet.balance - amount)
-            logger.info("Updated wallet balance for user $userId, new balance: ${updatedWallet.balance}")
-
-            val transactions = Transaction.newTransaction(
-                walletId = wallet.id,
-                userId = wallet.userId,
-                type = TransactionType.WITHDRAWAL,
-                amount = amount,
-                status = TransactionStatus.COMPLETED
-            )
-
-            transactionRepository.create(transactions)
-            logger.info("Withdrawal of $amount for user $userId completed successfully")
-
-            return updatedWallet
-        } catch (e: Exception) {
-            logger.error("Error executing withdrawal for user $userId: ${e.message}", e)
-            throw e
+        val wallet = walletRepository.getWalletByUserId(userId)
+        ensure(wallet != null) {
+            logger.error("Wallet not found for user $userId")
+            DomainError.WalletNotFoundException()
         }
+
+        logger.info("Retrieved wallet for user $userId")
+
+        ensure(wallet.balance >= amount) {
+            logger.error("Insufficient balance for user $userId: requested $amount, available ${wallet.balance}")
+            DomainError.InsufficientBalanceException()
+        }
+
+        val updatedWallet = walletRepository.updateWalletBalance(wallet.id, wallet.balance - amount)
+        logger.info("Updated wallet balance for user $userId, new balance: ${updatedWallet.balance}")
+
+        val transactions = Transaction.newTransaction(
+            walletId = wallet.id,
+            userId = wallet.userId,
+            type = TransactionType.WITHDRAWAL,
+            amount = amount,
+            status = TransactionStatus.COMPLETED
+        )
+
+        transactionRepository.create(transactions)
+        logger.info("Withdrawal of $amount for user $userId completed successfully")
+
+        updatedWallet
     }
 }

@@ -1,5 +1,8 @@
 package org.my.firstcircletest.application.usecases
 
+import arrow.core.Either
+import arrow.core.raise.either
+import arrow.core.raise.ensure
 import org.my.firstcircletest.domain.entities.Transaction
 import org.my.firstcircletest.domain.entities.UserID
 import org.my.firstcircletest.domain.entities.errors.DomainError
@@ -16,19 +19,14 @@ class GetUserTransactionsUseCase(
     private val logger = LoggerFactory.getLogger(GetUserTransactionsUseCase::class.java)
 
     @Transactional(readOnly = true)
-    suspend fun invoke(userId: UserID): List<Transaction> {
-        if (userId.isBlank()) {
+    suspend fun invoke(userId: UserID): Either<DomainError, List<Transaction>> = either {
+        ensure(userId.isNotBlank()) {
             logger.error("Invalid user ID: $userId")
-            throw DomainError.InvalidUserIdException()
+            DomainError.InvalidUserIdException()
         }
 
-        try {
-            val transactions = transactionRepository.getTransactionsByUserId(userId)
-            logger.info("Retrieved ${transactions.size} transactions for user $userId")
-            return transactions
-        } catch (e: Exception) {
-            logger.error("Error retrieving transactions for user $userId: ${e.message}", e)
-            throw e
-        }
+        val transactions = transactionRepository.getTransactionsByUserId(userId)
+        logger.info("Retrieved ${transactions.size} transactions for user $userId")
+        transactions
     }
 }

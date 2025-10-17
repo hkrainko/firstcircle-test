@@ -1,5 +1,8 @@
 package org.my.firstcircletest.application.usecases
 
+import arrow.core.Either
+import arrow.core.raise.either
+import arrow.core.raise.ensure
 import org.my.firstcircletest.domain.entities.Transaction
 import org.my.firstcircletest.domain.entities.TransactionStatus
 import org.my.firstcircletest.domain.entities.TransactionType
@@ -21,41 +24,32 @@ class DepositUseCase(
     private val logger = LoggerFactory.getLogger(DepositUseCase::class.java)
 
     @Transactional
-    suspend fun invoke(userId: UserID, amount: Int): Wallet {
-        if (userId.isBlank()) {
-            throw DomainError.InvalidUserIdException()
+    suspend fun invoke(userId: UserID, amount: Int): Either<DomainError, Wallet> = either {
+        ensure(userId.isNotBlank()) { DomainError.InvalidUserIdException() }
+        ensure(amount > 0) { DomainError.NonPositiveAmountException() }
+
+        val wallet = walletRepository.getWalletByUserId(userId)
+        ensure(wallet != null) {
+            logger.error("Wallet not found for user $userId")
+            DomainError.WalletNotFoundException()
         }
-        if (amount <= 0) {
-            throw DomainError.NonPositiveAmountException()
-        }
 
-        try {
-            val wallet = walletRepository.getWalletByUserId(userId)
-            if (wallet == null) {
-                logger.error("Wallet not found for user $userId")
-                throw DomainError.WalletNotFoundException()
-            }
+        logger.info("Retrieved wallet for user $userId")
 
-            logger.info("Retrieved wallet for user $userId")
+        val updatedWallet = walletRepository.updateWalletBalance(wallet.id, wallet.balance + amount)
+        logger.info("Updated wallet balance for user $userId, new balance: ${updatedWallet.balance}")
 
-            val updatedWallet = walletRepository.updateWalletBalance(wallet.id, wallet.balance + amount)
-            logger.info("Updated wallet balance for user $userId, new balance: ${updatedWallet.balance}")
+        val transaction = Transaction.newTransaction(
+            walletId = wallet.id,
+            userId = wallet.userId,
+            type = TransactionType.DEPOSIT,
+            amount = amount,
+            status = TransactionStatus.COMPLETED,
+        )
 
-            val transaction = Transaction.newTransaction(
-                walletId = wallet.id,
-                userId = wallet.userId,
-                type = TransactionType.DEPOSIT,
-                amount = amount,
-                status = TransactionStatus.COMPLETED,
-            )
+        transactionRepository.create(transaction)
+        logger.info("Deposit successful for user $userId, new balance: ${updatedWallet.balance}")
 
-            transactionRepository.create(transaction)
-            logger.info("Deposit successful for user $userId, new balance: ${updatedWallet.balance}")
-
-            return updatedWallet
-        } catch (e: Exception) {
-            logger.error("Error processing deposit for user $userId: ${e.message}", e)
-            throw e
-        }
+        updatedWallet
     }
 }

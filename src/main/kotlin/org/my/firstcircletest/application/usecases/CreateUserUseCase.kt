@@ -1,9 +1,12 @@
 package org.my.firstcircletest.application.usecases
 
+import arrow.core.Either
+import arrow.core.raise.either
 import org.my.firstcircletest.domain.entities.CreateUserRequest
 import org.my.firstcircletest.domain.entities.CreateWalletRequest
 import org.my.firstcircletest.domain.entities.User
 import org.my.firstcircletest.domain.entities.UserID
+import org.my.firstcircletest.domain.entities.errors.DomainError
 import org.my.firstcircletest.domain.repositories.UserRepository
 import org.my.firstcircletest.domain.repositories.WalletRepository
 import org.slf4j.LoggerFactory
@@ -19,31 +22,21 @@ class CreateUserUseCase(
     private val logger = LoggerFactory.getLogger(CreateUserUseCase::class.java)
 
     @Transactional
-    suspend fun invoke(request: CreateUserRequest): User {
-        try {
-            val user = userRepository.createUser(request)
-            logger.info("User created successfully: ${user.id}")
+    suspend fun invoke(request: CreateUserRequest): Either<DomainError, User> = either {
+        val user = userRepository.createUser(request)
+        logger.info("User created successfully: ${user.id}")
 
-            createWalletForNewUser(user.id)
-            logger.info("Wallet created for user: ${user.id}")
+        createWalletForNewUser(user.id).bind()
+        logger.info("Wallet created for user: ${user.id}")
 
-            return user
-        } catch (e: Exception) {
-            logger.error("Error creating user: ${e.message}", e)
-            throw e
-        }
+        user
     }
 
-    private fun createWalletForNewUser(userId: UserID) {
-        try {
-            val request = CreateWalletRequest(
-                userId = userId,
-                balance = 0
-            )
-            walletRepository.createWallet(request)
-        } catch (e: Exception) {
-            logger.error("Error creating wallet for user $userId: ${e.message}", e)
-            throw e
-        }
+    private fun createWalletForNewUser(userId: UserID): Either<DomainError, Unit> = either {
+        val request = CreateWalletRequest(
+            userId = userId,
+            balance = 0
+        )
+        walletRepository.createWallet(request)
     }
 }

@@ -1,5 +1,8 @@
 package org.my.firstcircletest.application.usecases
 
+import arrow.core.Either
+import arrow.core.raise.either
+import arrow.core.raise.ensure
 import org.my.firstcircletest.domain.entities.UserID
 import org.my.firstcircletest.domain.entities.Wallet
 import org.my.firstcircletest.domain.entities.errors.DomainError
@@ -16,23 +19,18 @@ class GetWalletInfoUseCase(
     private val logger = LoggerFactory.getLogger(GetWalletInfoUseCase::class.java)
 
     @Transactional(readOnly = true)
-    suspend fun invoke(userId: UserID): Wallet {
-        if (userId.isBlank()) {
+    suspend fun invoke(userId: UserID): Either<DomainError, Wallet> = either {
+        ensure(userId.isNotBlank()) {
             logger.error("Invalid user ID: $userId")
-            throw DomainError.InvalidUserIdException()
+            DomainError.InvalidUserIdException()
         }
 
-        try {
-            val wallet = walletRepository.getWalletByUserId(userId)
-            if (wallet == null) {
-                logger.error("Wallet not found for user $userId")
-                throw DomainError.WalletNotFoundException()
-            }
-            logger.info("Retrieved wallet for user $userId")
-            return wallet
-        } catch (e: Exception) {
-            logger.error("Error retrieving wallet for user $userId: ${e.message}", e)
-            throw e
+        val wallet = walletRepository.getWalletByUserId(userId)
+        ensure(wallet != null) {
+            logger.error("Wallet not found for user $userId")
+            DomainError.WalletNotFoundException()
         }
+        logger.info("Retrieved wallet for user $userId")
+        wallet
     }
 }
