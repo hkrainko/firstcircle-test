@@ -1,18 +1,18 @@
 package org.my.firstcircletest.domain.entities
 
 enum class TransactionType(val value: String) {
-    Deposit("deposit"),
-    Withdrawal("withdrawal"),
-    Transfer("transfer");
+    DEPOSIT("DEPOSIT"),
+    WITHDRAWAL("WITHDRAWAL"),
+    TRANSFER("TRANSFER");
 
     override fun toString(): String = value
 
     companion object {
         fun fromString(s: String): TransactionType {
             return when (s) {
-                "deposit" -> Deposit
-                "withdrawal" -> Withdrawal
-                "transfer" -> Transfer
+                "DEPOSIT" -> DEPOSIT
+                "WITHDRAWAL" -> WITHDRAWAL
+                "TRANSFER" -> TRANSFER
                 else -> throw IllegalArgumentException("invalid transaction type: $s")
             }
         }

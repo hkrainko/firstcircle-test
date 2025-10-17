@@ -22,7 +22,7 @@ data class Transaction(
         fun newTransaction(
             walletId: WalletID,
             userId: UserID,
-            transactionType: TransactionType,
+            type: TransactionType,
             amount: Int,
             status: TransactionStatus
         ): Transaction {
@@ -30,7 +30,7 @@ data class Transaction(
                 id = generateTransactionID(),
                 walletId = walletId,
                 userId = userId,
-                type = transactionType,
+                type = type,
                 amount = amount,
                 createdAt = LocalDateTime.now(),
                 status = status
@@ -51,7 +51,7 @@ data class Transaction(
                 userId = userId,
                 destinationWalletId = destinationWalletId,
                 destinationUserId = destinationUserId,
-                type = TransactionType.Transfer,
+                type = TransactionType.TRANSFER,
                 amount = amount,
                 createdAt = LocalDateTime.now(),
                 status = status

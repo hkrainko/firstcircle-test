@@ -82,9 +82,9 @@ class PgTransactionRepositoryIntegrationTest {
             walletId = testWalletId,
             userId = testUserId,
             amount = 10000,
-            type = TransactionType.Deposit,
+            type = TransactionType.DEPOSIT,
             createdAt = LocalDateTime.now(),
-            status = TransactionStatus.Completed
+            status = TransactionStatus.COMPLETED
         )
 
         // When
@@ -113,9 +113,9 @@ class PgTransactionRepositoryIntegrationTest {
             destinationWalletId = testDestinationWalletId,
             destinationUserId = testDestinationUserId,
             amount = 5000,
-            type = TransactionType.Transfer,
+            type = TransactionType.TRANSFER,
             createdAt = LocalDateTime.now(),
-            status = TransactionStatus.Completed
+            status = TransactionStatus.COMPLETED
         )
 
         // When
@@ -125,7 +125,7 @@ class PgTransactionRepositoryIntegrationTest {
         assertNotNull(result)
         assertEquals(testDestinationWalletId, result.destinationWalletId)
         assertEquals(testDestinationUserId, result.destinationUserId)
-        assertEquals(TransactionType.Transfer, result.type)
+        assertEquals(TransactionType.TRANSFER, result.type)
     }
 
     @Test
@@ -136,9 +136,9 @@ class PgTransactionRepositoryIntegrationTest {
             walletId = testWalletId,
             userId = testUserId,
             amount = 1000,
-            type = TransactionType.Deposit,
+            type = TransactionType.DEPOSIT,
             createdAt = LocalDateTime.now(),
-            status = TransactionStatus.Completed
+            status = TransactionStatus.COMPLETED
         )
 
         val transaction2 = Transaction(
@@ -146,9 +146,9 @@ class PgTransactionRepositoryIntegrationTest {
             walletId = testWalletId,
             userId = testUserId,
             amount = 2000,
-            type = TransactionType.Withdrawal,
+            type = TransactionType.WITHDRAWAL,
             createdAt = LocalDateTime.now().plusMinutes(1),
-            status = TransactionStatus.Completed
+            status = TransactionStatus.COMPLETED
         )
 
         pgTransactionRepository.create(transaction1)
@@ -194,9 +194,9 @@ class PgTransactionRepositoryIntegrationTest {
             destinationWalletId = testWalletId,
             destinationUserId = testUserId,
             amount = 3000,
-            type = TransactionType.Transfer,
+            type = TransactionType.TRANSFER,
             createdAt = LocalDateTime.now(),
-            status = TransactionStatus.Completed
+            status = TransactionStatus.COMPLETED
         )
 
         pgTransactionRepository.create(transferTransaction)
@@ -219,9 +219,9 @@ class PgTransactionRepositoryIntegrationTest {
             walletId = testWalletId,
             userId = testUserId,
             amount = 1000,
-            type = TransactionType.Deposit,
+            type = TransactionType.DEPOSIT,
             createdAt = now.minusHours(2),
-            status = TransactionStatus.Completed
+            status = TransactionStatus.COMPLETED
         )
 
         val transaction2 = Transaction(
@@ -229,9 +229,9 @@ class PgTransactionRepositoryIntegrationTest {
             walletId = testWalletId,
             userId = testUserId,
             amount = 2000,
-            type = TransactionType.Deposit,
+            type = TransactionType.DEPOSIT,
             createdAt = now.minusHours(1),
-            status = TransactionStatus.Completed
+            status = TransactionStatus.COMPLETED
         )
 
         val transaction3 = Transaction(
@@ -239,9 +239,9 @@ class PgTransactionRepositoryIntegrationTest {
             walletId = testWalletId,
             userId = testUserId,
             amount = 3000,
-            type = TransactionType.Deposit,
+            type = TransactionType.DEPOSIT,
             createdAt = now,
-            status = TransactionStatus.Completed
+            status = TransactionStatus.COMPLETED
         )
 
         pgTransactionRepository.create(transaction1)
@@ -302,9 +302,9 @@ class PgTransactionRepositoryIntegrationTest {
             destinationWalletId = otherWalletId,
             destinationUserId = otherUserId,
             amount = 1000,
-            type = TransactionType.Transfer,
+            type = TransactionType.TRANSFER,
             createdAt = LocalDateTime.now(),
-            status = TransactionStatus.Completed
+            status = TransactionStatus.COMPLETED
         )
 
         // Transaction received by testUser
@@ -315,9 +315,9 @@ class PgTransactionRepositoryIntegrationTest {
             destinationWalletId = testWalletId,
             destinationUserId = testUserId,
             amount = 2000,
-            type = TransactionType.Transfer,
+            type = TransactionType.TRANSFER,
             createdAt = LocalDateTime.now().plusMinutes(1),
-            status = TransactionStatus.Completed
+            status = TransactionStatus.COMPLETED
         )
 
         pgTransactionRepository.create(sentTransaction)
@@ -335,48 +335,48 @@ class PgTransactionRepositoryIntegrationTest {
     @Test
     fun `create should handle different transaction types correctly`() {
         // Given
-        val depositTransaction = Transaction(
+        val DEPOSITTransaction = Transaction(
             id = UUID.randomUUID().toString(),
             walletId = testWalletId,
             userId = testUserId,
             amount = 1000,
-            type = TransactionType.Deposit,
+            type = TransactionType.DEPOSIT,
             createdAt = LocalDateTime.now(),
-            status = TransactionStatus.Completed
+            status = TransactionStatus.COMPLETED
         )
 
-        val withdrawalTransaction = Transaction(
+        val WITHDRAWALTransaction = Transaction(
             id = UUID.randomUUID().toString(),
             walletId = testWalletId,
             userId = testUserId,
             amount = 500,
-            type = TransactionType.Withdrawal,
+            type = TransactionType.WITHDRAWAL,
             createdAt = LocalDateTime.now(),
-            status = TransactionStatus.Completed
+            status = TransactionStatus.COMPLETED
         )
 
         // When
-        pgTransactionRepository.create(depositTransaction)
-        pgTransactionRepository.create(withdrawalTransaction)
+        pgTransactionRepository.create(DEPOSITTransaction)
+        pgTransactionRepository.create(WITHDRAWALTransaction)
 
         // Then
         val results = pgTransactionRepository.getTransactionsByUserId(testUserId)
         assertEquals(2, results.size)
-        assertTrue(results.any { it.type == TransactionType.Deposit })
-        assertTrue(results.any { it.type == TransactionType.Withdrawal })
+        assertTrue(results.any { it.type == TransactionType.DEPOSIT })
+        assertTrue(results.any { it.type == TransactionType.WITHDRAWAL })
     }
 
     @Test
     fun `create should handle different transaction statuses correctly`() {
         // Given
-        val completedTransaction = Transaction(
+        val COMPLETEDTransaction = Transaction(
             id = UUID.randomUUID().toString(),
             walletId = testWalletId,
             userId = testUserId,
             amount = 1000,
-            type = TransactionType.Deposit,
+            type = TransactionType.DEPOSIT,
             createdAt = LocalDateTime.now(),
-            status = TransactionStatus.Completed
+            status = TransactionStatus.COMPLETED
         )
 
         val pendingTransaction = Transaction(
@@ -384,19 +384,19 @@ class PgTransactionRepositoryIntegrationTest {
             walletId = testWalletId,
             userId = testUserId,
             amount = 500,
-            type = TransactionType.Deposit,
+            type = TransactionType.DEPOSIT,
             createdAt = LocalDateTime.now(),
-            status = TransactionStatus.PendingCancel
+            status = TransactionStatus.PENDING_CANCEL
         )
 
         // When
-        pgTransactionRepository.create(completedTransaction)
+        pgTransactionRepository.create(COMPLETEDTransaction)
         pgTransactionRepository.create(pendingTransaction)
 
         // Then
         val results = pgTransactionRepository.getTransactionsByUserId(testUserId)
         assertEquals(2, results.size)
-        assertTrue(results.any { it.status == TransactionStatus.Completed })
-        assertTrue(results.any { it.status == TransactionStatus.PendingCancel })
+        assertTrue(results.any { it.status == TransactionStatus.COMPLETED })
+        assertTrue(results.any { it.status == TransactionStatus.PENDING_CANCEL })
     }
 }
