@@ -1,6 +1,8 @@
 package org.my.firstcircletest.data.repositories.postgres
 
 import arrow.core.Either
+import arrow.core.flatMap
+import arrow.core.right
 import org.my.firstcircletest.data.repositories.postgres.dto.TransactionDTO
 import org.my.firstcircletest.domain.entities.Transaction
 import org.my.firstcircletest.domain.repositories.RepositoryError
@@ -29,11 +31,19 @@ class PgTransactionRepository(
 
     override fun getTransactionsByUserId(userId: String): Either<RepositoryError, List<Transaction>> {
         return Either.catch {
-            val results = transactionJpaRepository.findByUserIdOrDestinationUserId(userId.toString())
-            results.map { it.toDomain() }
+            transactionJpaRepository.findByUserIdOrDestinationUserId(userId)
         }.mapLeft { e ->
             logger.error("PgTransactionRepo.getTransactionsByUserId: error executing query", e)
             RepositoryError.RetrievalFailed("Error retrieving transactions")
+        }.flatMap { dtos ->
+            val transactions = mutableListOf<Transaction>()
+            for (dto in dtos) {
+                when (val result = dto.toDomain()) {
+                    is Either.Left -> return@flatMap result
+                    is Either.Right -> transactions.add(result.value)
+                }
+            }
+            transactions.right()
         }
     }
 }

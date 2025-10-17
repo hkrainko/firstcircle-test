@@ -21,4 +21,8 @@ sealed class RepositoryError(open val message: String) {
     data class DatabaseError(
         override val message: String = "Database operation failed"
     ) : RepositoryError(message)
+
+    data class ConversionFailed(
+        override val message: String = "Failed to convert entity"
+    ) : RepositoryError(message)
 }

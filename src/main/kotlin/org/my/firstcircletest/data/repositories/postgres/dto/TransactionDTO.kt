@@ -1,10 +1,13 @@
 package org.my.firstcircletest.data.repositories.postgres.dto
 
+import arrow.core.Either
+import arrow.core.left
+import arrow.core.right
 import jakarta.persistence.*
 import org.my.firstcircletest.domain.entities.Transaction
 import org.my.firstcircletest.domain.entities.TransactionStatus
 import org.my.firstcircletest.domain.entities.TransactionType
-import org.my.firstcircletest.domain.entities.errors.DomainError
+import org.my.firstcircletest.domain.repositories.RepositoryError
 import org.slf4j.LoggerFactory
 import java.time.LocalDateTime
 
@@ -47,11 +50,11 @@ class TransactionDTO(
 
         fun fromDomain(transaction: Transaction): TransactionDTO {
             return TransactionDTO(
-                id = transaction.id.toString(),
-                walletId = transaction.walletId.toString(),
-                userId = transaction.userId.toString(),
-                destinationWalletId = transaction.destinationWalletId?.toString(),
-                destinationUserId = transaction.destinationUserId?.toString(),
+                id = transaction.id,
+                walletId = transaction.walletId,
+                userId = transaction.userId,
+                destinationWalletId = transaction.destinationWalletId,
+                destinationUserId = transaction.destinationUserId,
                 amount = transaction.amount,
                 type = transaction.type.name,
                 createdAt = transaction.createdAt,
@@ -61,19 +64,19 @@ class TransactionDTO(
         }
     }
 
-    fun toDomain(): Transaction {
+    fun toDomain(): Either<RepositoryError, Transaction> {
         val transactionType = try {
             TransactionType.valueOf(type)
         } catch (e: IllegalArgumentException) {
             logger.error("TransactionDTO.toDomain: error converting type: {}", type, e)
-            throw DomainError.InvalidTransactionTypeException("Invalid transaction type: $type")
+            return RepositoryError.ConversionFailed("Invalid transaction type: $type").left()
         }
 
         val transactionStatus = try {
             TransactionStatus.valueOf(status)
         } catch (e: IllegalArgumentException) {
             logger.error("TransactionDTO.toDomain: error converting status: {}", status, e)
-            throw DomainError.InvalidTransactionStatusException("Invalid transaction status: $status")
+            return RepositoryError.ConversionFailed("Invalid transaction status: $status").left()
         }
 
         return Transaction(
@@ -87,7 +90,7 @@ class TransactionDTO(
             createdAt = createdAt,
             updatedAt = updatedAt,
             status = transactionStatus
-        )
+        ).right()
     }
 
     @PrePersist
