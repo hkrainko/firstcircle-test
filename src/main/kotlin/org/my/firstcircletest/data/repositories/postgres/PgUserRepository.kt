@@ -4,7 +4,7 @@ import arrow.core.Either
 import org.my.firstcircletest.data.repositories.postgres.dto.UserDTO
 import org.my.firstcircletest.domain.entities.CreateUserRequest
 import org.my.firstcircletest.domain.entities.User
-import org.my.firstcircletest.domain.entities.errors.DomainError
+import org.my.firstcircletest.domain.repositories.RepositoryError
 import org.my.firstcircletest.domain.repositories.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.data.jpa.repository.JpaRepository
@@ -17,7 +17,7 @@ class PgUserRepository(
 ) : UserRepository {
     private val logger = LoggerFactory.getLogger(PgUserRepository::class.java)
 
-    override fun createUser(request: CreateUserRequest): Either<DomainError, User> {
+    override fun createUser(request: CreateUserRequest): Either<RepositoryError, User> {
         return Either.catch {
             val userId = "user-${UUID.randomUUID()}"
 
@@ -30,7 +30,7 @@ class PgUserRepository(
             saved.toDomain()
         }.mapLeft { e ->
             logger.error("PgUserRepo.createUser: error executing query", e)
-            DomainError.DatabaseException("Error creating user")
+            RepositoryError.CreationFailed("Error creating user")
         }
     }
 }

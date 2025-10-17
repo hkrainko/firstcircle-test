@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.my.firstcircletest.domain.entities.CreateWalletRequest
-import org.my.firstcircletest.domain.entities.errors.DomainError
+import org.my.firstcircletest.domain.repositories.RepositoryError
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
 import org.springframework.context.annotation.Import
@@ -171,7 +171,7 @@ class PgWalletRepositoryIntegrationTest {
     }
 
     @Test
-    fun `getWalletByUserId should return Left with WalletNotFoundException when wallet does not exist`() {
+    fun `getWalletByUserId should return Left with NotFound when wallet does not exist`() {
         // Given
         val nonExistentUserId = "user-${UUID.randomUUID()}"
 
@@ -181,8 +181,8 @@ class PgWalletRepositoryIntegrationTest {
         // Then
         assertTrue(eitherResult.isLeft())
         eitherResult.onLeft { error ->
-            assertTrue(error is DomainError.WalletNotFoundException)
-            assertTrue(error.message!!.contains("Wallet not found for user"))
+            assertTrue(error is RepositoryError.NotFound)
+            assertTrue(error.message.contains("Wallet not found for user"))
         }
     }
 
@@ -263,7 +263,7 @@ class PgWalletRepositoryIntegrationTest {
     }
 
     @Test
-    fun `updateWalletBalance should return Left with WalletNotFoundException when wallet does not exist`() {
+    fun `updateWalletBalance should return Left with NotFound when wallet does not exist`() {
         // Given
         val nonExistentWalletId = "wallet-${UUID.randomUUID()}"
 
@@ -273,8 +273,8 @@ class PgWalletRepositoryIntegrationTest {
         // Then
         assertTrue(eitherResult.isLeft())
         eitherResult.onLeft { error ->
-            assertTrue(error is DomainError.WalletNotFoundException)
-            assertTrue(error.message!!.contains("Wallet not found"))
+            assertTrue(error is RepositoryError.NotFound)
+            assertTrue(error.message.contains("Wallet not found"))
         }
     }
 
