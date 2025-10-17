@@ -62,7 +62,7 @@ class PgWalletRepositoryIntegrationTest {
 
         // Verify it was persisted
         val found = entityManager.find(
-            org.my.firstcircletest.data.repositories.postgres.dto.WalletDTO::class.java,
+            org.my.firstcircletest.data.repositories.postgres.entities.WalletEntity::class.java,
             result.id.toString()
         )
         assertNotNull(found)
@@ -212,7 +212,7 @@ class PgWalletRepositoryIntegrationTest {
         // Verify it was updated in database
         entityManager.clear()
         val found = entityManager.find(
-            org.my.firstcircletest.data.repositories.postgres.dto.WalletDTO::class.java,
+            org.my.firstcircletest.data.repositories.postgres.entities.WalletEntity::class.java,
             walletId
         )
         assertEquals(75000, found.balance)
@@ -310,7 +310,7 @@ class PgWalletRepositoryIntegrationTest {
         // Verify final state
         entityManager.clear()
         val found = entityManager.find(
-            org.my.firstcircletest.data.repositories.postgres.dto.WalletDTO::class.java,
+            org.my.firstcircletest.data.repositories.postgres.entities.WalletEntity::class.java,
             walletId
         )
         assertEquals(15000, found.balance)

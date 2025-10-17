@@ -2,9 +2,8 @@ package org.my.firstcircletest.data.repositories.postgres
 
 import arrow.core.Either
 import arrow.core.left
-import arrow.core.right
 import jakarta.persistence.EntityManager
-import org.my.firstcircletest.data.repositories.postgres.dto.WalletDTO
+import org.my.firstcircletest.data.repositories.postgres.entities.WalletEntity
 import org.my.firstcircletest.domain.entities.CreateWalletRequest
 import org.my.firstcircletest.domain.entities.Wallet
 import org.my.firstcircletest.domain.repositories.RepositoryError
@@ -45,13 +44,13 @@ class PgWalletRepository(
         return Either.catch {
             val walletId = "wallet-${UUID.randomUUID()}"
 
-            val walletDTO = WalletDTO(
+            val walletEntity = WalletEntity(
                 id = walletId,
                 userId = request.userId.toString(),
                 balance = request.balance
             )
 
-            val saved = walletJpaRepository.save(walletDTO)
+            val saved = walletJpaRepository.save(walletEntity)
             saved.toDomain()
         }.mapLeft { e ->
             logger.error("PgWalletRepo.createWallet: error executing query", e)
@@ -81,6 +80,6 @@ class PgWalletRepository(
     }
 }
 
-interface WalletJpaRepository : JpaRepository<WalletDTO, String> {
-    fun findByUserId(userId: String): Optional<WalletDTO>
+interface WalletJpaRepository : JpaRepository<WalletEntity, String> {
+    fun findByUserId(userId: String): Optional<WalletEntity>
 }

@@ -39,7 +39,7 @@ class PgUserRepositoryIntegrationTest {
 
         // Verify it was persisted
         val found = entityManager.find(
-            org.my.firstcircletest.data.repositories.postgres.dto.UserDTO::class.java,
+            org.my.firstcircletest.data.repositories.postgres.entities.UserEntity::class.java,
             result.id.toString()
         )
         assertNotNull(found)
@@ -86,7 +86,7 @@ class PgUserRepositoryIntegrationTest {
 
         // Verify it was persisted correctly
         val found = entityManager.find(
-            org.my.firstcircletest.data.repositories.postgres.dto.UserDTO::class.java,
+            org.my.firstcircletest.data.repositories.postgres.entities.UserEntity::class.java,
             result.id.toString()
         )
         assertEquals("O'Brien & Smith-Jones", found.name)

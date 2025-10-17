@@ -1,7 +1,7 @@
 package org.my.firstcircletest.data.repositories.postgres
 
 import arrow.core.Either
-import org.my.firstcircletest.data.repositories.postgres.dto.UserDTO
+import org.my.firstcircletest.data.repositories.postgres.entities.UserEntity
 import org.my.firstcircletest.domain.entities.CreateUserRequest
 import org.my.firstcircletest.domain.entities.User
 import org.my.firstcircletest.domain.repositories.RepositoryError
@@ -21,12 +21,12 @@ class PgUserRepository(
         return Either.catch {
             val userId = "user-${UUID.randomUUID()}"
 
-            val userDTO = UserDTO(
+            val userEntity = UserEntity(
                 id = userId,
                 name = request.name
             )
 
-            val saved = userJpaRepository.save(userDTO)
+            val saved = userJpaRepository.save(userEntity)
             saved.toDomain()
         }.mapLeft { e ->
             logger.error("PgUserRepo.createUser: error executing query", e)
@@ -35,4 +35,4 @@ class PgUserRepository(
     }
 }
 
-interface UserJpaRepository : JpaRepository<UserDTO, String>
+interface UserJpaRepository : JpaRepository<UserEntity, String>

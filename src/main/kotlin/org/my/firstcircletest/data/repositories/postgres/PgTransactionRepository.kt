@@ -3,7 +3,7 @@ package org.my.firstcircletest.data.repositories.postgres
 import arrow.core.Either
 import arrow.core.flatMap
 import arrow.core.right
-import org.my.firstcircletest.data.repositories.postgres.dto.TransactionDTO
+import org.my.firstcircletest.data.repositories.postgres.entities.TransactionEntity
 import org.my.firstcircletest.domain.entities.Transaction
 import org.my.firstcircletest.domain.repositories.RepositoryError
 import org.my.firstcircletest.domain.repositories.TransactionRepository
@@ -20,7 +20,7 @@ class PgTransactionRepository(
 
     override fun create(transaction: Transaction): Either<RepositoryError, Transaction> {
         return Either.catch {
-            val txDto = TransactionDTO.fromDomain(transaction)
+            val txDto = TransactionEntity.fromDomain(transaction)
             transactionJpaRepository.save(txDto)
             transaction
         }.mapLeft { e ->
@@ -48,7 +48,7 @@ class PgTransactionRepository(
     }
 }
 
-interface TransactionJpaRepository : JpaRepository<TransactionDTO, String> {
-    @Query("SELECT t FROM TransactionDTO t WHERE t.userId = :userId OR t.destinationUserId = :userId ORDER BY t.createdAt DESC")
-    fun findByUserIdOrDestinationUserId(userId: String): List<TransactionDTO>
+interface TransactionJpaRepository : JpaRepository<TransactionEntity, String> {
+    @Query("SELECT t FROM TransactionEntity t WHERE t.userId = :userId OR t.destinationUserId = :userId ORDER BY t.createdAt DESC")
+    fun findByUserIdOrDestinationUserId(userId: String): List<TransactionEntity>
 }

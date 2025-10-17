@@ -1,4 +1,4 @@
-package org.my.firstcircletest.data.repositories.postgres.dto
+package org.my.firstcircletest.data.repositories.postgres.entities
 
 import arrow.core.Either
 import arrow.core.left
@@ -13,7 +13,7 @@ import java.time.LocalDateTime
 
 @Entity
 @Table(name = "transactions")
-class TransactionDTO(
+class TransactionEntity(
     @Id
     @Column(name = "id", nullable = false)
     var id: String = "",
@@ -46,10 +46,10 @@ class TransactionDTO(
     var status: String = ""
 ) {
     companion object {
-        private val logger = LoggerFactory.getLogger(TransactionDTO::class.java)
+        private val logger = LoggerFactory.getLogger(TransactionEntity::class.java)
 
-        fun fromDomain(transaction: Transaction): TransactionDTO {
-            return TransactionDTO(
+        fun fromDomain(transaction: Transaction): TransactionEntity {
+            return TransactionEntity(
                 id = transaction.id,
                 walletId = transaction.walletId,
                 userId = transaction.userId,
