@@ -1,5 +1,6 @@
 package org.my.firstcircletest.data.repositories.postgres
 
+import arrow.core.Either
 import org.my.firstcircletest.data.repositories.postgres.dto.UserDTO
 import org.my.firstcircletest.domain.entities.CreateUserRequest
 import org.my.firstcircletest.domain.entities.User
@@ -16,8 +17,8 @@ class PgUserRepository(
 ) : UserRepository {
     private val logger = LoggerFactory.getLogger(PgUserRepository::class.java)
 
-    override fun createUser(request: CreateUserRequest): User {
-        return try {
+    override fun createUser(request: CreateUserRequest): Either<DomainError, User> {
+        return Either.catch {
             val userId = "user-${UUID.randomUUID()}"
 
             val userDTO = UserDTO(
@@ -27,9 +28,9 @@ class PgUserRepository(
 
             val saved = userJpaRepository.save(userDTO)
             saved.toDomain()
-        } catch (e: Exception) {
+        }.mapLeft { e ->
             logger.error("PgUserRepo.createUser: error executing query", e)
-            throw DomainError.DatabaseException("Error creating user")
+            DomainError.DatabaseException("Error creating user")
         }
     }
 }

@@ -1,5 +1,8 @@
 package org.my.firstcircletest.data.repositories.postgres
 
+import arrow.core.Either
+import arrow.core.left
+import arrow.core.right
 import jakarta.persistence.EntityManager
 import org.my.firstcircletest.data.repositories.postgres.dto.WalletDTO
 import org.my.firstcircletest.domain.entities.CreateWalletRequest
@@ -20,26 +23,26 @@ class PgWalletRepository(
 ) : WalletRepository {
     private val logger = LoggerFactory.getLogger(PgWalletRepository::class.java)
 
-    override fun getWalletByUserId(userId: String): Wallet {
-        return try {
+    override fun getWalletByUserId(userId: String): Either<DomainError, Wallet> {
+        return Either.catch {
             val result = walletJpaRepository.findByUserId(userId.toString())
-                .orElseThrow {
-                    DomainError.WalletNotFoundException("Wallet not found for user: $userId")
-                }
+                .orElse(null)
+
+            if (result == null) {
+                logger.error("PgWalletRepo.getWalletByUserId: no wallet found for user ID $userId")
+                return DomainError.WalletNotFoundException("Wallet not found for user: $userId").left()
+            }
 
             result.toDomain()
-        } catch (e: DomainError) {
-            logger.error("PgWalletRepo.getWalletByUserId: no wallet found for user ID $userId")
-            throw e
-        } catch (e: Exception) {
+        }.mapLeft { e ->
             logger.error("PgWalletRepo.getWalletByUserId: error executing query", e)
-            throw DomainError.DatabaseException("Error retrieving wallet")
+            DomainError.DatabaseException("Error retrieving wallet")
         }
     }
 
     @Transactional
-    override fun createWallet(request: CreateWalletRequest): Wallet {
-        return try {
+    override fun createWallet(request: CreateWalletRequest): Either<DomainError, Wallet> {
+        return Either.catch {
             val walletId = "wallet-${UUID.randomUUID()}"
 
             val walletDTO = WalletDTO(
@@ -50,30 +53,30 @@ class PgWalletRepository(
 
             val saved = walletJpaRepository.save(walletDTO)
             saved.toDomain()
-        } catch (e: Exception) {
+        }.mapLeft { e ->
             logger.error("PgWalletRepo.createWallet: error executing query", e)
-            throw DomainError.DatabaseException("Error creating wallet")
+            DomainError.DatabaseException("Error creating wallet")
         }
     }
 
     @Transactional
-    override fun updateWalletBalance(walletId: String, balance: Int): Wallet {
-        return try {
+    override fun updateWalletBalance(walletId: String, balance: Int): Either<DomainError, Wallet> {
+        return Either.catch {
             val wallet = walletJpaRepository.findById(walletId.toString())
-                .orElseThrow {
-                    DomainError.WalletNotFoundException("Wallet not found: $walletId")
-                }
+                .orElse(null)
+
+            if (wallet == null) {
+                logger.error("PgWalletRepo.updateWalletBalance: no wallet found with ID $walletId")
+                return DomainError.WalletNotFoundException("Wallet not found: $walletId").left()
+            }
 
             wallet.balance = balance
             val saved = walletJpaRepository.save(wallet)
             entityManager.flush()
             saved.toDomain()
-        } catch (e: DomainError) {
-            logger.error("PgWalletRepo.updateWalletBalance: no wallet found with ID $walletId")
-            throw e
-        } catch (e: Exception) {
+        }.mapLeft { e ->
             logger.error("PgWalletRepo.updateWalletBalance: error executing query", e)
-            throw DomainError.DatabaseException("Error updating wallet balance")
+            DomainError.DatabaseException("Error updating wallet balance")
         }
     }
 }

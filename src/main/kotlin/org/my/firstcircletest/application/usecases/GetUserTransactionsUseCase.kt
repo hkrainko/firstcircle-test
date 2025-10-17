@@ -25,8 +25,8 @@ class GetUserTransactionsUseCase(
             DomainError.InvalidUserIdException()
         }
 
-        val transactions = transactionRepository.getTransactionsByUserId(userId)
-        logger.info("Retrieved ${transactions.size} transactions for user $userId")
-        transactions
+        transactionRepository.getTransactionsByUserId(userId).onLeft {
+            logger.error("Failed to retrieve transactions for user $userId: ${it.message}")
+        }.onRight { logger.info("Retrieved ${it.size} transactions for user $userId") }.bind()
     }
 }

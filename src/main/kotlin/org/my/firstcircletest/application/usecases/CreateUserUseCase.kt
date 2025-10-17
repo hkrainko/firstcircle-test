@@ -24,12 +24,13 @@ class CreateUserUseCase(
 
     @Transactional
     suspend fun invoke(request: CreateUserRequest): Either<DomainError, User> = either {
-        val user = userRepository.createUser(request)
+        val user = userRepository.createUser(request).onLeft {
+            logger.error("Failed to create user: ${it.message}")
+        }.bind()
+
         logger.info("User created successfully: ${user.id}")
 
-        val walletResult = createWalletForNewUser(user.id)
-
-        walletResult.onLeft {
+        createWalletForNewUser(user.id).onLeft {
             logger.error("Failed to create wallet for user: ${user.id}, marking transaction for rollback")
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
         }.bind()

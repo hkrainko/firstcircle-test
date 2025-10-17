@@ -26,23 +26,20 @@ class DepositUseCase(
 
     @Transactional
     suspend fun invoke(userId: UserID, amount: Int): Either<DomainError, Wallet> = either {
-        ensure(userId.isNotBlank()) {
-            DomainError.InvalidUserIdException()
-        }
-        ensure(amount > 0) {
-            DomainError.NonPositiveAmountException()
-        }
+        ensure(userId.isNotBlank()) { DomainError.InvalidUserIdException() }
+        ensure(amount > 0) { DomainError.NonPositiveAmountException() }
 
-        val wallet = walletRepository.getWalletByUserId(userId)
-        ensure(wallet != null) {
-            logger.error("Wallet not found for user $userId")
-            DomainError.WalletNotFoundException()
-        }
+        val wallet = walletRepository.getWalletByUserId(userId).onLeft {
+            logger.error("Failed to retrieve wallet for user $userId: ${it.message}")
+        }.bind()
 
         logger.info("Retrieved wallet for user $userId")
 
         val updatedWallet = walletRepository.updateWalletBalance(wallet.id, wallet.balance + amount)
-        logger.info("Updated wallet balance for user $userId, new balance: ${updatedWallet.balance}")
+            .onLeft {
+                logger.error("Failed to update wallet balance for user $userId: ${it.message}")
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
+            }.onRight { logger.info("Updated wallet balance for user $userId, new balance: ${it.balance}") }.bind()
 
         val transaction = Transaction.newTransaction(
             walletId = wallet.id,
@@ -52,15 +49,12 @@ class DepositUseCase(
             status = TransactionStatus.COMPLETED,
         )
 
-        Either.catch {
-            transactionRepository.create(transaction)
-        }.mapLeft {
+        transactionRepository.create(transaction).mapLeft {
             logger.error("Failed to create transaction for user $userId", it)
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
             DomainError.TransactionCreationException()
-        }.bind()
+        }.onRight { logger.info("Deposit successful for user $userId, new balance: ${updatedWallet.balance}") }.bind()
 
-        logger.info("Deposit successful for user $userId, new balance: ${updatedWallet.balance}")
 
         updatedWallet
     }

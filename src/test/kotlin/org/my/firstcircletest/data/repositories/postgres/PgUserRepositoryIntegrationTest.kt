@@ -1,5 +1,6 @@
 package org.my.firstcircletest.data.repositories.postgres
 
+import arrow.core.getOrElse
 import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -26,9 +27,11 @@ class PgUserRepositoryIntegrationTest {
         val request = CreateUserRequest(name = "John Doe")
 
         // When
-        val result = pgUserRepository.createUser(request)
+        val eitherResult = pgUserRepository.createUser(request)
 
         // Then
+        assertTrue(eitherResult.isRight())
+        val result = eitherResult.getOrElse { fail("Expected Right but got Left") }
         assertNotNull(result)
         assertNotNull(result.id)
         assertTrue(result.id.toString().startsWith("user-"))
@@ -50,10 +53,14 @@ class PgUserRepositoryIntegrationTest {
         val request2 = CreateUserRequest(name = "User Two")
 
         // When
-        val result1 = pgUserRepository.createUser(request1)
-        val result2 = pgUserRepository.createUser(request2)
+        val eitherResult1 = pgUserRepository.createUser(request1)
+        val eitherResult2 = pgUserRepository.createUser(request2)
 
         // Then
+        assertTrue(eitherResult1.isRight())
+        assertTrue(eitherResult2.isRight())
+        val result1 = eitherResult1.getOrElse { fail("Expected Right but got Left") }
+        val result2 = eitherResult2.getOrElse { fail("Expected Right but got Left") }
         assertNotNull(result1.id)
         assertNotNull(result2.id)
         assertNotEquals(result1.id, result2.id)
@@ -69,9 +76,11 @@ class PgUserRepositoryIntegrationTest {
         val request = CreateUserRequest(name = "O'Brien & Smith-Jones")
 
         // When
-        val result = pgUserRepository.createUser(request)
+        val eitherResult = pgUserRepository.createUser(request)
 
         // Then
+        assertTrue(eitherResult.isRight())
+        val result = eitherResult.getOrElse { fail("Expected Right but got Left") }
         assertNotNull(result)
         assertEquals("O'Brien & Smith-Jones", result.name)
 
@@ -90,9 +99,11 @@ class PgUserRepositoryIntegrationTest {
         val request = CreateUserRequest(name = longName)
 
         // When
-        val result = pgUserRepository.createUser(request)
+        val eitherResult = pgUserRepository.createUser(request)
 
         // Then
+        assertTrue(eitherResult.isRight())
+        val result = eitherResult.getOrElse { fail("Expected Right but got Left") }
         assertNotNull(result)
         assertEquals(longName, result.name)
     }
@@ -103,9 +114,11 @@ class PgUserRepositoryIntegrationTest {
         val request = CreateUserRequest(name = "")
 
         // When
-        val result = pgUserRepository.createUser(request)
+        val eitherResult = pgUserRepository.createUser(request)
 
         // Then
+        assertTrue(eitherResult.isRight())
+        val result = eitherResult.getOrElse { fail("Expected Right but got Left") }
         assertNotNull(result)
         assertEquals("", result.name)
     }
@@ -117,10 +130,14 @@ class PgUserRepositoryIntegrationTest {
         val request2 = CreateUserRequest(name = "John Smith")
 
         // When
-        val result1 = pgUserRepository.createUser(request1)
-        val result2 = pgUserRepository.createUser(request2)
+        val eitherResult1 = pgUserRepository.createUser(request1)
+        val eitherResult2 = pgUserRepository.createUser(request2)
 
         // Then
+        assertTrue(eitherResult1.isRight())
+        assertTrue(eitherResult2.isRight())
+        val result1 = eitherResult1.getOrElse { fail("Expected Right but got Left") }
+        val result2 = eitherResult2.getOrElse { fail("Expected Right but got Left") }
         assertNotEquals(result1.id, result2.id)
         assertEquals(result1.name, result2.name)
     }

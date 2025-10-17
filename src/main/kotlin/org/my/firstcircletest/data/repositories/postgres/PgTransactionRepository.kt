@@ -1,5 +1,6 @@
 package org.my.firstcircletest.data.repositories.postgres
 
+import arrow.core.Either
 import org.my.firstcircletest.data.repositories.postgres.dto.TransactionDTO
 import org.my.firstcircletest.domain.entities.Transaction
 import org.my.firstcircletest.domain.entities.errors.DomainError
@@ -15,24 +16,24 @@ class PgTransactionRepository(
 ) : TransactionRepository {
     private val logger = LoggerFactory.getLogger(PgTransactionRepository::class.java)
 
-    override fun create(transaction: Transaction): Transaction {
-        return try {
+    override fun create(transaction: Transaction): Either<DomainError, Transaction> {
+        return Either.catch {
             val txDto = TransactionDTO.fromDomain(transaction)
             transactionJpaRepository.save(txDto)
             transaction
-        } catch (e: Exception) {
+        }.mapLeft { e ->
             logger.error("PgTransactionRepo.create: error executing query", e)
-            throw DomainError.DatabaseException("Error creating transaction")
+            DomainError.DatabaseException("Error creating transaction")
         }
     }
 
-    override fun getTransactionsByUserId(userId: String): List<Transaction> {
-        return try {
+    override fun getTransactionsByUserId(userId: String): Either<DomainError, List<Transaction>> {
+        return Either.catch {
             val results = transactionJpaRepository.findByUserIdOrDestinationUserId(userId.toString())
             results.map { it.toDomain() }
-        } catch (e: Exception) {
+        }.mapLeft { e ->
             logger.error("PgTransactionRepo.getTransactionsByUserId: error executing query", e)
-            throw DomainError.DatabaseException("Error retrieving transactions")
+            DomainError.DatabaseException("Error retrieving transactions")
         }
     }
 }

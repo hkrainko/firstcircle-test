@@ -1,5 +1,6 @@
 package org.my.firstcircletest.data.repositories.postgres
 
+import arrow.core.getOrElse
 import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -88,9 +89,11 @@ class PgTransactionRepositoryIntegrationTest {
         )
 
         // When
-        val result = pgTransactionRepository.create(transaction)
+        val eitherResult = pgTransactionRepository.create(transaction)
 
         // Then
+        assertTrue(eitherResult.isRight())
+        val result = eitherResult.getOrElse { fail("Expected Right but got Left") }
         assertNotNull(result)
         assertEquals(transaction.id, result.id)
         assertEquals(transaction.amount, result.amount)
@@ -98,7 +101,9 @@ class PgTransactionRepositoryIntegrationTest {
         assertEquals(transaction.status, result.status)
 
         // Verify it was persisted
-        val found = pgTransactionRepository.getTransactionsByUserId(testUserId)
+        val eitherFound = pgTransactionRepository.getTransactionsByUserId(testUserId)
+        assertTrue(eitherFound.isRight())
+        val found = eitherFound.getOrElse { fail("Expected Right but got Left") }
         assertTrue(found.isNotEmpty())
         assertTrue(found.any { it.id == transaction.id })
     }
@@ -119,9 +124,11 @@ class PgTransactionRepositoryIntegrationTest {
         )
 
         // When
-        val result = pgTransactionRepository.create(transaction)
+        val eitherResult = pgTransactionRepository.create(transaction)
 
         // Then
+        assertTrue(eitherResult.isRight())
+        val result = eitherResult.getOrElse { fail("Expected Right but got Left") }
         assertNotNull(result)
         assertEquals(testDestinationWalletId, result.destinationWalletId)
         assertEquals(testDestinationUserId, result.destinationUserId)
@@ -155,9 +162,11 @@ class PgTransactionRepositoryIntegrationTest {
         pgTransactionRepository.create(transaction2)
 
         // When
-        val results = pgTransactionRepository.getTransactionsByUserId(testUserId)
+        val eitherResults = pgTransactionRepository.getTransactionsByUserId(testUserId)
 
         // Then
+        assertTrue(eitherResults.isRight())
+        val results = eitherResults.getOrElse { fail("Expected Right but got Left") }
         assertEquals(2, results.size)
         assertTrue(results.any { it.id == transaction1.id })
         assertTrue(results.any { it.id == transaction2.id })
@@ -202,9 +211,11 @@ class PgTransactionRepositoryIntegrationTest {
         pgTransactionRepository.create(transferTransaction)
 
         // When
-        val results = pgTransactionRepository.getTransactionsByUserId(testUserId)
+        val eitherResults = pgTransactionRepository.getTransactionsByUserId(testUserId)
 
         // Then
+        assertTrue(eitherResults.isRight())
+        val results = eitherResults.getOrElse { fail("Expected Right but got Left") }
         assertEquals(1, results.size)
         assertEquals(transferTransaction.id, results[0].id)
         assertEquals(testUserId, results[0].destinationUserId)
@@ -249,9 +260,11 @@ class PgTransactionRepositoryIntegrationTest {
         pgTransactionRepository.create(transaction3)
 
         // When
-        val results = pgTransactionRepository.getTransactionsByUserId(testUserId)
+        val eitherResults = pgTransactionRepository.getTransactionsByUserId(testUserId)
 
         // Then
+        assertTrue(eitherResults.isRight())
+        val results = eitherResults.getOrElse { fail("Expected Right but got Left") }
         assertEquals(3, results.size)
         assertEquals(transaction3.id, results[0].id) // Most recent first
         assertEquals(transaction2.id, results[1].id)
@@ -264,9 +277,11 @@ class PgTransactionRepositoryIntegrationTest {
         val nonExistentUserId = "user-${UUID.randomUUID()}"
 
         // When
-        val results = pgTransactionRepository.getTransactionsByUserId(nonExistentUserId)
+        val eitherResults = pgTransactionRepository.getTransactionsByUserId(nonExistentUserId)
 
         // Then
+        assertTrue(eitherResults.isRight())
+        val results = eitherResults.getOrElse { fail("Expected Right but got Left") }
         assertTrue(results.isEmpty())
     }
 
@@ -324,9 +339,11 @@ class PgTransactionRepositoryIntegrationTest {
         pgTransactionRepository.create(receivedTransaction)
 
         // When
-        val results = pgTransactionRepository.getTransactionsByUserId(testUserId)
+        val eitherResults = pgTransactionRepository.getTransactionsByUserId(testUserId)
 
         // Then
+        assertTrue(eitherResults.isRight())
+        val results = eitherResults.getOrElse { fail("Expected Right but got Left") }
         assertEquals(2, results.size)
         assertTrue(results.any { it.id == sentTransaction.id && it.userId == testUserId })
         assertTrue(results.any { it.id == receivedTransaction.id && it.destinationUserId == testUserId })
@@ -360,7 +377,9 @@ class PgTransactionRepositoryIntegrationTest {
         pgTransactionRepository.create(WITHDRAWALTransaction)
 
         // Then
-        val results = pgTransactionRepository.getTransactionsByUserId(testUserId)
+        val eitherResults = pgTransactionRepository.getTransactionsByUserId(testUserId)
+        assertTrue(eitherResults.isRight())
+        val results = eitherResults.getOrElse { fail("Expected Right but got Left") }
         assertEquals(2, results.size)
         assertTrue(results.any { it.type == TransactionType.DEPOSIT })
         assertTrue(results.any { it.type == TransactionType.WITHDRAWAL })
@@ -394,7 +413,9 @@ class PgTransactionRepositoryIntegrationTest {
         pgTransactionRepository.create(pendingTransaction)
 
         // Then
-        val results = pgTransactionRepository.getTransactionsByUserId(testUserId)
+        val eitherResults = pgTransactionRepository.getTransactionsByUserId(testUserId)
+        assertTrue(eitherResults.isRight())
+        val results = eitherResults.getOrElse { fail("Expected Right but got Left") }
         assertEquals(2, results.size)
         assertTrue(results.any { it.status == TransactionStatus.COMPLETED })
         assertTrue(results.any { it.status == TransactionStatus.PENDING_CANCEL })

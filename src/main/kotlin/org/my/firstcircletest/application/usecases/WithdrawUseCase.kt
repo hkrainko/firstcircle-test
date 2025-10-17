@@ -37,14 +37,14 @@ class WithdrawUseCase(
             DomainError.NonPositiveAmountException()
         }
 
-        val wallet = walletRepository.getWalletByUserId(userId)
-        ensure(wallet != null) {
+        val wallet = walletRepository.getWalletByUserId(userId).mapLeft {
             logger.error("Wallet not found for user $userId")
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
             DomainError.WalletNotFoundException()
-        }
+        }.onRight {
+            logger.info("Retrieved wallet for user $userId")
+        }.bind()
 
-        logger.info("Retrieved wallet for user $userId")
 
         ensure(wallet.balance >= amount) {
             logger.error("Insufficient balance for user $userId: requested $amount, available ${wallet.balance}")
@@ -53,7 +53,10 @@ class WithdrawUseCase(
         }
 
         val updatedWallet = walletRepository.updateWalletBalance(wallet.id, wallet.balance - amount)
-        logger.info("Updated wallet balance for user $userId, new balance: ${updatedWallet.balance}")
+            .onLeft { logger.error("Wallet update failed") }
+            .onRight {
+                logger.info("Updated wallet balance for user $userId, new balance: ${it.balance}")
+            }.bind()
 
         val transactions = Transaction.newTransaction(
             walletId = wallet.id,
@@ -63,15 +66,13 @@ class WithdrawUseCase(
             status = TransactionStatus.COMPLETED
         )
 
-        Either.catch {
-            transactionRepository.create(transactions)
-        }.mapLeft {
+        transactionRepository.create(transactions).mapLeft {
             logger.error("Failed to create transaction for user $userId", it)
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
             DomainError.TransactionCreationException()
+        }.onRight {
+            logger.info("Withdrawal of $amount for user $userId completed successfully")
         }.bind()
-
-        logger.info("Withdrawal of $amount for user $userId completed successfully")
 
         updatedWallet
     }

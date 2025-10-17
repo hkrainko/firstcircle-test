@@ -25,12 +25,9 @@ class GetWalletInfoUseCase(
             DomainError.InvalidUserIdException()
         }
 
-        val wallet = walletRepository.getWalletByUserId(userId)
-        ensure(wallet != null) {
-            logger.error("Wallet not found for user $userId")
+        walletRepository.getWalletByUserId(userId).mapLeft {
+            logger.error("Failed to retrieve wallet for user $userId: ${it.message}")
             DomainError.WalletNotFoundException()
-        }
-        logger.info("Retrieved wallet for user $userId")
-        wallet
+        }.onRight { logger.info("Retrieved wallet for user $userId") }.bind()
     }
 }

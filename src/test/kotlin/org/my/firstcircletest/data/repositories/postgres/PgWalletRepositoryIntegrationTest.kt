@@ -1,5 +1,6 @@
 package org.my.firstcircletest.data.repositories.postgres
 
+import arrow.core.getOrElse
 import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -48,9 +49,11 @@ class PgWalletRepositoryIntegrationTest {
         val request = CreateWalletRequest(userId = testUserId, balance = 100000)
 
         // When
-        val result = pgWalletRepository.createWallet(request)
+        val eitherResult = pgWalletRepository.createWallet(request)
 
         // Then
+        assertTrue(eitherResult.isRight())
+        val result = eitherResult.getOrElse { fail("Expected Right but got Left") }
         assertNotNull(result)
         assertNotNull(result.id)
         assertTrue(result.id.toString().startsWith("wallet-"))
@@ -73,9 +76,11 @@ class PgWalletRepositoryIntegrationTest {
         val request = CreateWalletRequest(userId = testUserId, balance = 0)
 
         // When
-        val result = pgWalletRepository.createWallet(request)
+        val eitherResult = pgWalletRepository.createWallet(request)
 
         // Then
+        assertTrue(eitherResult.isRight())
+        val result = eitherResult.getOrElse { fail("Expected Right but got Left") }
         assertNotNull(result)
         assertEquals(0, result.balance)
     }
@@ -86,9 +91,11 @@ class PgWalletRepositoryIntegrationTest {
         val request = CreateWalletRequest(userId = testUserId, balance = -1000)
 
         // When
-        val result = pgWalletRepository.createWallet(request)
+        val eitherResult = pgWalletRepository.createWallet(request)
 
         // Then
+        assertTrue(eitherResult.isRight())
+        val result = eitherResult.getOrElse { fail("Expected Right but got Left") }
         assertNotNull(result)
         assertEquals(-1000, result.balance)
     }
@@ -121,10 +128,14 @@ class PgWalletRepositoryIntegrationTest {
         val request2 = CreateWalletRequest(userId = userId2, balance = 20000)
 
         // When
-        val result1 = pgWalletRepository.createWallet(request1)
-        val result2 = pgWalletRepository.createWallet(request2)
+        val eitherResult1 = pgWalletRepository.createWallet(request1)
+        val eitherResult2 = pgWalletRepository.createWallet(request2)
 
         // Then
+        assertTrue(eitherResult1.isRight())
+        assertTrue(eitherResult2.isRight())
+        val result1 = eitherResult1.getOrElse { fail("Expected Right but got Left") }
+        val result2 = eitherResult2.getOrElse { fail("Expected Right but got Left") }
         assertNotNull(result1.id)
         assertNotNull(result2.id)
         assertNotEquals(result1.id, result2.id)
@@ -148,9 +159,11 @@ class PgWalletRepositoryIntegrationTest {
         entityManager.flush()
 
         // When
-        val result = pgWalletRepository.getWalletByUserId(testUserId)
+        val eitherResult = pgWalletRepository.getWalletByUserId(testUserId)
 
         // Then
+        assertTrue(eitherResult.isRight())
+        val result = eitherResult.getOrElse { fail("Expected Right but got Left") }
         assertNotNull(result)
         assertEquals(walletId, result.id)
         assertEquals(testUserId.toString(), result.userId)
@@ -158,16 +171,19 @@ class PgWalletRepositoryIntegrationTest {
     }
 
     @Test
-    fun `getWalletByUserId should throw WalletNotFoundException when wallet does not exist`() {
+    fun `getWalletByUserId should return Left with WalletNotFoundException when wallet does not exist`() {
         // Given
         val nonExistentUserId = "user-${UUID.randomUUID()}"
 
-        // When & Then
-        val exception = assertThrows(DomainError.WalletNotFoundException::class.java) {
-            pgWalletRepository.getWalletByUserId(nonExistentUserId)
-        }
+        // When
+        val eitherResult = pgWalletRepository.getWalletByUserId(nonExistentUserId)
 
-        assertTrue(exception.message!!.contains("Wallet not found for user"))
+        // Then
+        assertTrue(eitherResult.isLeft())
+        eitherResult.onLeft { error ->
+            assertTrue(error is DomainError.WalletNotFoundException)
+            assertTrue(error.message!!.contains("Wallet not found for user"))
+        }
     }
 
     @Test
@@ -184,9 +200,11 @@ class PgWalletRepositoryIntegrationTest {
         entityManager.flush()
 
         // When
-        val result = pgWalletRepository.updateWalletBalance(walletId, 75000)
+        val eitherResult = pgWalletRepository.updateWalletBalance(walletId, 75000)
 
         // Then
+        assertTrue(eitherResult.isRight())
+        val result = eitherResult.getOrElse { fail("Expected Right but got Left") }
         assertNotNull(result)
         assertEquals(walletId, result.id)
         assertEquals(75000, result.balance)
@@ -214,9 +232,11 @@ class PgWalletRepositoryIntegrationTest {
         entityManager.flush()
 
         // When
-        val result = pgWalletRepository.updateWalletBalance(walletId, 0)
+        val eitherResult = pgWalletRepository.updateWalletBalance(walletId, 0)
 
         // Then
+        assertTrue(eitherResult.isRight())
+        val result = eitherResult.getOrElse { fail("Expected Right but got Left") }
         assertEquals(0, result.balance)
     }
 
@@ -234,23 +254,28 @@ class PgWalletRepositoryIntegrationTest {
         entityManager.flush()
 
         // When
-        val result = pgWalletRepository.updateWalletBalance(walletId, -5000)
+        val eitherResult = pgWalletRepository.updateWalletBalance(walletId, -5000)
 
         // Then
+        assertTrue(eitherResult.isRight())
+        val result = eitherResult.getOrElse { fail("Expected Right but got Left") }
         assertEquals(-5000, result.balance)
     }
 
     @Test
-    fun `updateWalletBalance should throw WalletNotFoundException when wallet does not exist`() {
+    fun `updateWalletBalance should return Left with WalletNotFoundException when wallet does not exist`() {
         // Given
         val nonExistentWalletId = "wallet-${UUID.randomUUID()}"
 
-        // When & Then
-        val exception = assertThrows(DomainError.WalletNotFoundException::class.java) {
-            pgWalletRepository.updateWalletBalance(nonExistentWalletId, 100000)
-        }
+        // When
+        val eitherResult = pgWalletRepository.updateWalletBalance(nonExistentWalletId, 100000)
 
-        assertTrue(exception.message!!.contains("Wallet not found"))
+        // Then
+        assertTrue(eitherResult.isLeft())
+        eitherResult.onLeft { error ->
+            assertTrue(error is DomainError.WalletNotFoundException)
+            assertTrue(error.message!!.contains("Wallet not found"))
+        }
     }
 
     @Test
@@ -267,11 +292,17 @@ class PgWalletRepositoryIntegrationTest {
         entityManager.flush()
 
         // When
-        val result1 = pgWalletRepository.updateWalletBalance(walletId, 20000)
-        val result2 = pgWalletRepository.updateWalletBalance(walletId, 30000)
-        val result3 = pgWalletRepository.updateWalletBalance(walletId, 15000)
+        val eitherResult1 = pgWalletRepository.updateWalletBalance(walletId, 20000)
+        val eitherResult2 = pgWalletRepository.updateWalletBalance(walletId, 30000)
+        val eitherResult3 = pgWalletRepository.updateWalletBalance(walletId, 15000)
 
         // Then
+        assertTrue(eitherResult1.isRight())
+        assertTrue(eitherResult2.isRight())
+        assertTrue(eitherResult3.isRight())
+        val result1 = eitherResult1.getOrElse { fail("Expected Right but got Left") }
+        val result2 = eitherResult2.getOrElse { fail("Expected Right but got Left") }
+        val result3 = eitherResult3.getOrElse { fail("Expected Right but got Left") }
         assertEquals(20000, result1.balance)
         assertEquals(30000, result2.balance)
         assertEquals(15000, result3.balance)
@@ -329,10 +360,14 @@ class PgWalletRepositoryIntegrationTest {
         entityManager.flush()
 
         // When
-        val result1 = pgWalletRepository.getWalletByUserId(userId1)
-        val result2 = pgWalletRepository.getWalletByUserId(userId2)
+        val eitherResult1 = pgWalletRepository.getWalletByUserId(userId1)
+        val eitherResult2 = pgWalletRepository.getWalletByUserId(userId2)
 
         // Then
+        assertTrue(eitherResult1.isRight())
+        assertTrue(eitherResult2.isRight())
+        val result1 = eitherResult1.getOrElse { fail("Expected Right but got Left") }
+        val result2 = eitherResult2.getOrElse { fail("Expected Right but got Left") }
         assertEquals(walletId1, result1.id)
         assertEquals(10000, result1.balance)
         assertEquals(walletId2, result2.id)

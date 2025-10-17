@@ -38,33 +38,38 @@ class TransferUseCase(
         }
 
         // 1. Update sender's wallet (withdraw)
-        val fromWallet = walletRepository.getWalletByUserId(transfer.fromUserId)
-        ensure(fromWallet != null) {
-            logger.error("Wallet not found for user ${transfer.fromUserId}")
+        val fromWallet = walletRepository.getWalletByUserId(transfer.fromUserId).mapLeft {
+            logger.error("Failed to retrieve wallet for user ${transfer.fromUserId}", it)
             DomainError.WalletNotFoundException()
-        }
+        }.bind()
+
         ensure(fromWallet.balance >= transfer.amount) {
             logger.error("Insufficient balance for user ${transfer.fromUserId}: requested ${transfer.amount}, available ${fromWallet.balance}")
             DomainError.InsufficientBalanceException()
         }
-        val updatedFromWallet = walletRepository.updateWalletBalance(fromWallet.id, fromWallet.balance - transfer.amount)
-        logger.info("Deducted ${transfer.amount} from user ${transfer.fromUserId}")
+
+        val updatedFromWallet =
+            walletRepository.updateWalletBalance(fromWallet.id, fromWallet.balance - transfer.amount)
+                .onLeft { logger.error("Failed to update wallet for user ${transfer.fromUserId}: $it") }
+                .onRight { logger.info("Deducted ${transfer.amount} from user ${transfer.fromUserId}") }
+                .bind()
 
         // 2. Update receiver's wallet (deposit)
-        val toWallet = walletRepository.getWalletByUserId(transfer.toUserId)
-        ensure(toWallet != null) {
+        val toWallet = walletRepository.getWalletByUserId(transfer.toUserId).mapLeft {
             logger.error("Wallet not found for user ${transfer.toUserId}")
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
             DomainError.WalletNotFoundException()
-        }
-        val updatedToWallet = Either.catch {
-            walletRepository.updateWalletBalance(toWallet.id, toWallet.balance + transfer.amount)
-        }.mapLeft {
-            logger.error("Failed to update wallet balance for user ${transfer.toUserId}", it)
-            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
-            DomainError.WalletUpdateException()
         }.bind()
-        logger.info("Added ${transfer.amount} to user ${transfer.toUserId}")
+
+        val updatedToWallet = walletRepository.updateWalletBalance(toWallet.id, toWallet.balance + transfer.amount)
+            .mapLeft {
+                logger.error("Failed to update wallet balance for user ${transfer.toUserId}", it)
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
+                DomainError.WalletUpdateException()
+            }.onRight {
+                logger.info("Added ${transfer.amount} to user ${transfer.toUserId}")
+            }
+            .bind()
 
         // 3. Create a single transfer transaction record
         val transaction = Transaction.newTransferTransaction(
@@ -76,15 +81,17 @@ class TransferUseCase(
             status = TransactionStatus.COMPLETED
         )
 
-        Either.catch {
-            transactionRepository.create(transaction)
-        }.mapLeft {
-            logger.error("Failed to create transaction for transfer from ${transfer.fromUserId} to ${transfer.toUserId}", it)
-            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
-            DomainError.TransactionCreationException()
-        }.bind()
-
-        logger.info("Transfer of ${transfer.amount} from user ${transfer.fromUserId} to user ${transfer.toUserId} completed successfully")
+        transactionRepository.create(transaction)
+            .mapLeft {
+                logger.error(
+                    "Failed to create transaction for transfer from ${transfer.fromUserId} to ${transfer.toUserId}",
+                    it
+                )
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
+                DomainError.TransactionCreationException()
+            }.onRight {
+                logger.info("Transfer of ${transfer.amount} from user ${transfer.fromUserId} to user ${transfer.toUserId} completed successfully")
+            }.bind()
 
         transfer
     }
