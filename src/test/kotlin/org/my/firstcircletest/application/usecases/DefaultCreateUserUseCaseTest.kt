@@ -1,0 +1,148 @@
+package org.my.firstcircletest.application.usecases
+
+import arrow.core.left
+import arrow.core.right
+import io.mockk.*
+import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.my.firstcircletest.domain.entities.CreateUserRequest
+import org.my.firstcircletest.domain.entities.CreateWalletRequest
+import org.my.firstcircletest.domain.entities.User
+import org.my.firstcircletest.domain.entities.Wallet
+import org.my.firstcircletest.domain.repositories.RepositoryError
+import org.my.firstcircletest.domain.repositories.UserRepository
+import org.my.firstcircletest.domain.repositories.WalletRepository
+import org.my.firstcircletest.domain.usecases.CreateUserError
+import org.springframework.transaction.interceptor.TransactionAspectSupport
+
+class DefaultCreateUserUseCaseTest {
+
+    private val userRepository: UserRepository = mockk()
+    private val walletRepository: WalletRepository = mockk()
+    private val useCase = DefaultCreateUserUseCase(userRepository, walletRepository)
+
+    @BeforeEach
+    fun setup() {
+        mockkStatic(TransactionAspectSupport::class)
+        every { TransactionAspectSupport.currentTransactionStatus() } returns mockk(relaxed = true)
+    }
+
+    @AfterEach
+    fun tearDown() {
+        unmockkStatic(TransactionAspectSupport::class)
+    }
+
+    @Test
+    fun `should successfully create user with wallet and initial balance`() = runTest {
+        // Given
+        val request = CreateUserRequest(
+            name = "John Doe",
+            initBalance = 1000
+        )
+        val user = User(id = "user123", name = "John Doe")
+        val walletRequest = CreateWalletRequest(userId = user.id, balance = 1000)
+        val wallet = Wallet(id = "wallet123", userId = user.id, balance = 1000)
+
+        coEvery { userRepository.createUser(request) } returns user.right()
+        coEvery { walletRepository.createWallet(walletRequest) } returns wallet.right()
+
+        // When
+        val result = useCase.invoke(request)
+
+        // Then
+        assertTrue(result.isRight())
+        result.fold(
+            ifLeft = { },
+            ifRight = { createdUser ->
+                assertEquals(user.id, createdUser.id)
+                assertEquals(user.name, createdUser.name)
+            }
+        )
+
+        coVerify { userRepository.createUser(request) }
+        coVerify { walletRepository.createWallet(walletRequest) }
+    }
+
+    @Test
+    fun `should return UserCreationFailed when user repository fails`() = runTest {
+        // Given
+        val request = CreateUserRequest(
+            name = "John Doe",
+            initBalance = 1000
+        )
+        val repositoryError = RepositoryError.DatabaseError("Database connection failed")
+
+        coEvery { userRepository.createUser(request) } returns repositoryError.left()
+
+        // When
+        val result = useCase.invoke(request)
+
+        // Then
+        assertTrue(result.isLeft())
+        result.fold(
+            ifLeft = { error ->
+                assertTrue(error is CreateUserError.UserCreationFailed)
+            },
+            ifRight = { }
+        )
+
+        coVerify { userRepository.createUser(request) }
+        coVerify(exactly = 0) { walletRepository.createWallet(any()) }
+    }
+
+    @Test
+    fun `should return WalletCreationFailed when wallet repository fails`() = runTest {
+        // Given
+        val request = CreateUserRequest(
+            name = "John Doe",
+            initBalance = 1000
+        )
+        val user = User(id = "user123", name = "John Doe")
+        val walletRequest = CreateWalletRequest(userId = user.id, balance = 1000)
+        val repositoryError = RepositoryError.DatabaseError("Wallet creation failed")
+
+        coEvery { userRepository.createUser(request) } returns user.right()
+        coEvery { walletRepository.createWallet(walletRequest) } returns repositoryError.left()
+
+        // When
+        val result = useCase.invoke(request)
+
+        // Then
+        assertTrue(result.isLeft())
+        result.fold(
+            ifLeft = { error ->
+                assertTrue(error is CreateUserError.WalletCreationFailed)
+            },
+            ifRight = { }
+        )
+
+        coVerify { userRepository.createUser(request) }
+        coVerify { walletRepository.createWallet(walletRequest) }
+    }
+
+    @Test
+    fun `should create wallet with zero initial balance`() = runTest {
+        // Given
+        val request = CreateUserRequest(
+            name = "John Doe",
+            initBalance = 0
+        )
+        val user = User(id = "user123", name = "John Doe")
+        val walletRequest = CreateWalletRequest(userId = user.id, balance = 0)
+        val wallet = Wallet(id = "wallet123", userId = user.id, balance = 0)
+
+        coEvery { userRepository.createUser(request) } returns user.right()
+        coEvery { walletRepository.createWallet(walletRequest) } returns wallet.right()
+
+        // When
+        val result = useCase.invoke(request)
+
+        // Then
+        assertTrue(result.isRight())
+        coVerify { walletRepository.createWallet(walletRequest) }
+    }
+}
