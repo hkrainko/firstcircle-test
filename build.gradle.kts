@@ -21,7 +21,9 @@ repositories {
 }
 
 sourceSets {
-    create("integrationTest") {
+    create("integrationTest")
+    create("e2eTest")
+    getByName("integrationTest") {
         kotlin {
             srcDir("src/integrationTest/kotlin")
         }
@@ -31,7 +33,7 @@ sourceSets {
         compileClasspath += sourceSets["main"].output + sourceSets["test"].output
         runtimeClasspath += sourceSets["main"].output + sourceSets["test"].output
     }
-    create("e2eTest") {
+    getByName("e2eTest") {
         kotlin {
             srcDir("src/e2eTest/kotlin")
         }
