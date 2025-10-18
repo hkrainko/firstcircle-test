@@ -31,6 +31,16 @@ sourceSets {
         compileClasspath += sourceSets["main"].output + sourceSets["test"].output
         runtimeClasspath += sourceSets["main"].output + sourceSets["test"].output
     }
+    create("e2eTest") {
+        kotlin {
+            srcDir("src/e2eTest/kotlin")
+        }
+        resources {
+            srcDir("src/e2eTest/resources")
+        }
+        compileClasspath += sourceSets["main"].output + sourceSets["test"].output
+        runtimeClasspath += sourceSets["main"].output + sourceSets["test"].output
+    }
 }
 
 configurations {
@@ -38,6 +48,12 @@ configurations {
         extendsFrom(configurations["testImplementation"])
     }
     getByName("integrationTestRuntimeOnly") {
+        extendsFrom(configurations["testRuntimeOnly"])
+    }
+    getByName("e2eTestImplementation") {
+        extendsFrom(configurations["testImplementation"])
+    }
+    getByName("e2eTestRuntimeOnly") {
         extendsFrom(configurations["testRuntimeOnly"])
     }
 }
@@ -90,6 +106,19 @@ tasks.register<Test>("integrationTest") {
     shouldRunAfter(tasks.test)
 }
 
+tasks.register<Test>("e2eTest") {
+    description = "Runs end-to-end tests"
+    group = "verification"
+
+    testClassesDirs = sourceSets["e2eTest"].output.classesDirs
+    classpath = sourceSets["e2eTest"].runtimeClasspath
+
+    useJUnitPlatform()
+
+    shouldRunAfter(tasks.named("integrationTest"))
+}
+
 tasks.named("check") {
     dependsOn(tasks.named("integrationTest"))
+    dependsOn(tasks.named("e2eTest"))
 }
