@@ -45,7 +45,7 @@ class DefaultTransferUseCase(
 
         ensure(fromWallet.balance >= transfer.amount) {
             logger.error("Insufficient balance for user ${transfer.fromUserId}: requested ${transfer.amount}, available ${fromWallet.balance}")
-            TransferError.InsufficientBalance(requested = transfer.amount, available = fromWallet.balance)
+            TransferError.InsufficientBalance()
         }
 
         val updatedFromWallet =

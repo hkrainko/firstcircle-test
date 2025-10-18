@@ -25,9 +25,7 @@ sealed class TransferError(open val message: String) {
     ) : TransferError(message)
 
     data class InsufficientBalance(
-        val requested: Int,
-        val available: Int,
-        override val message: String = "Insufficient balance: requested $requested, available $available"
+        override val message: String = "Insufficient balance"
     ) : TransferError(message)
 
     data class WalletUpdateFailed(

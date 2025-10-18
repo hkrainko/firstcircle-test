@@ -1,8 +1,8 @@
 package org.my.firstcircletest.delivery.http.dto.request
 
-import jakarta.validation.constraints.Positive
+import org.my.firstcircletest.delivery.http.validation.ValidAmount
 
 data class WithdrawRequestDto(
-    @field:Positive(message = "Amount must be positive")
+    @field:ValidAmount
     val amount: Int
 )

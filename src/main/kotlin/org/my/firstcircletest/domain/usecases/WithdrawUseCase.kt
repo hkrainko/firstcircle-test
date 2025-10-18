@@ -14,11 +14,7 @@ sealed class WithdrawError(open val message: String) {
         WithdrawError(message)
 
     data class WalletNotFound(override val message: String = "Wallet not found for user") : WithdrawError(message)
-    data class InsufficientBalance(
-        val requested: Int,
-        val available: Int,
-        override val message: String = "Insufficient balance: requested $requested, available $available"
-    ) : WithdrawError(message)
+    data class InsufficientBalance(override val message: String = "Insufficient balance") : WithdrawError(message)
 
     data class TransactionCreationFailed(override val message: String = "Failed to create withdrawal transaction") :
         WithdrawError(message)

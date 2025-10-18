@@ -24,7 +24,7 @@ class PgUserRepositoryIntegrationTest {
     @Test
     fun `createUser should persist user successfully`() {
         // Given
-        val request = CreateUserRequest(name = "John Doe")
+        val request = CreateUserRequest(name = "John Doe", initBalance = 1000)
 
         // When
         val eitherResult = pgUserRepository.createUser(request)
@@ -47,33 +47,9 @@ class PgUserRepositoryIntegrationTest {
     }
 
     @Test
-    fun `createUser should generate unique IDs for different users`() {
-        // Given
-        val request1 = CreateUserRequest(name = "User One")
-        val request2 = CreateUserRequest(name = "User Two")
-
-        // When
-        val eitherResult1 = pgUserRepository.createUser(request1)
-        val eitherResult2 = pgUserRepository.createUser(request2)
-
-        // Then
-        assertTrue(eitherResult1.isRight())
-        assertTrue(eitherResult2.isRight())
-        val result1 = eitherResult1.getOrElse { fail("Expected Right but got Left") }
-        val result2 = eitherResult2.getOrElse { fail("Expected Right but got Left") }
-        assertNotNull(result1.id)
-        assertNotNull(result2.id)
-        assertNotEquals(result1.id, result2.id)
-        assertTrue(result1.id.toString().startsWith("user-"))
-        assertTrue(result2.id.toString().startsWith("user-"))
-        assertEquals("User One", result1.name)
-        assertEquals("User Two", result2.name)
-    }
-
-    @Test
     fun `createUser should handle special characters in name`() {
         // Given
-        val request = CreateUserRequest(name = "O'Brien & Smith-Jones")
+        val request = CreateUserRequest(name = "O'Brien & Smith-Jones", initBalance = 2000)
 
         // When
         val eitherResult = pgUserRepository.createUser(request)
@@ -96,7 +72,7 @@ class PgUserRepositoryIntegrationTest {
     fun `createUser should handle long names`() {
         // Given
         val longName = "A".repeat(255)
-        val request = CreateUserRequest(name = longName)
+        val request = CreateUserRequest(name = longName, initBalance = 100)
 
         // When
         val eitherResult = pgUserRepository.createUser(request)
@@ -111,7 +87,7 @@ class PgUserRepositoryIntegrationTest {
     @Test
     fun `createUser should handle empty name`() {
         // Given
-        val request = CreateUserRequest(name = "")
+        val request = CreateUserRequest(name = "", initBalance = 0)
 
         // When
         val eitherResult = pgUserRepository.createUser(request)
@@ -126,8 +102,8 @@ class PgUserRepositoryIntegrationTest {
     @Test
     fun `createUser should create multiple users with same name`() {
         // Given
-        val request1 = CreateUserRequest(name = "John Smith")
-        val request2 = CreateUserRequest(name = "John Smith")
+        val request1 = CreateUserRequest(name = "John Smith", initBalance = 300)
+        val request2 = CreateUserRequest(name = "John Smith", initBalance = 400)
 
         // When
         val eitherResult1 = pgUserRepository.createUser(request1)

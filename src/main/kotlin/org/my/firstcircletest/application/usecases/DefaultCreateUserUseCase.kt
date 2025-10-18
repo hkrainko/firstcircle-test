@@ -10,6 +10,7 @@ import org.my.firstcircletest.domain.repositories.UserRepository
 import org.my.firstcircletest.domain.repositories.WalletRepository
 import org.my.firstcircletest.domain.usecases.CreateUserError
 import org.my.firstcircletest.domain.usecases.CreateUserUseCase
+import org.my.firstcircletest.domain.usecases.DepositUseCase
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -18,7 +19,7 @@ import org.springframework.transaction.interceptor.TransactionAspectSupport
 @Service
 class DefaultCreateUserUseCase(
     private val userRepository: UserRepository,
-    private val walletRepository: WalletRepository
+    private val walletRepository: WalletRepository,
 ) : CreateUserUseCase {
 
     private val logger = LoggerFactory.getLogger(DefaultCreateUserUseCase::class.java)
@@ -32,20 +33,20 @@ class DefaultCreateUserUseCase(
 
         logger.info("User created successfully: ${user.id}")
 
-        createWalletForNewUser(user.id).onLeft {
+        createWalletForNewUser(user.id, request.initBalance).onLeft {
             logger.error("Failed to create wallet for user: ${user.id}, marking transaction for rollback")
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
         }.bind()
 
-        logger.info("Wallet created for user: ${user.id}")
+        logger.info("Wallet created for user: ${user.id} with initial balance: ${request.initBalance}")
 
         user
     }
 
-    private fun createWalletForNewUser(userId: UserID): Either<CreateUserError, Unit> = either {
+    private fun createWalletForNewUser(userId: UserID, initBalance: Int): Either<CreateUserError, Unit> = either {
         val request = CreateWalletRequest(
             userId = userId,
-            balance = 0
+            balance = initBalance
         )
         walletRepository.createWallet(request).mapLeft {
             CreateUserError.WalletCreationFailed()

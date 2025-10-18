@@ -4,10 +4,10 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import org.my.firstcircletest.domain.entities.User
 
 data class CreateUserResponseDto(
-    @JsonProperty("user_id")
+    @field:JsonProperty("user_id")
     val userId: String,
 
-    @JsonProperty("name")
+    @field:JsonProperty("name")
     val name: String
 ) {
     companion object {

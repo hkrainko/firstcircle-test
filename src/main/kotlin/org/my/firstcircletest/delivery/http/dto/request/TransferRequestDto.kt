@@ -1,12 +1,12 @@
 package org.my.firstcircletest.delivery.http.dto.request
 
-import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.Positive
+import org.my.firstcircletest.delivery.http.validation.ValidAmount
+import org.my.firstcircletest.delivery.http.validation.ValidUserId
 
 data class TransferRequestDto(
-    @field:NotBlank(message = "To user ID cannot be blank")
+    @field:ValidUserId
     val toUserId: String,
 
-    @field:Positive(message = "Amount must be positive")
+    @field:ValidAmount
     val amount: Int
 )

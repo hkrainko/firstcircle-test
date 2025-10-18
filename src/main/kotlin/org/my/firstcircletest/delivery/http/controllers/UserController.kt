@@ -6,7 +6,7 @@ import org.my.firstcircletest.delivery.http.dto.request.CreateUserRequestDto
 import org.my.firstcircletest.delivery.http.dto.response.CreateUserResponseDto
 import org.my.firstcircletest.delivery.http.dto.response.ErrorResponseDto
 import org.my.firstcircletest.delivery.http.dto.response.GetUserTransactionsResponseDto
-import org.my.firstcircletest.domain.entities.CreateUserRequest
+import org.my.firstcircletest.delivery.http.validation.ValidUserId
 import org.my.firstcircletest.domain.usecases.CreateUserError
 import org.my.firstcircletest.domain.usecases.CreateUserUseCase
 import org.my.firstcircletest.domain.usecases.GetUserTransactionsError
@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*
 @Validated
 class UserController(
     private val createUserUseCase: CreateUserUseCase,
-    private val getUserTransactionsUseCase: GetUserTransactionsUseCase
+    private val getUserTransactionsUseCase: GetUserTransactionsUseCase,
 ) {
 
     private val logger = LoggerFactory.getLogger(UserController::class.java)
@@ -33,9 +33,7 @@ class UserController(
     ): ResponseEntity<*> = runBlocking {
         logger.info("Creating user with name: ${requestDto.name}")
 
-        val request = CreateUserRequest(name = requestDto.name)
-
-        createUserUseCase.invoke(request).fold(
+        createUserUseCase.invoke(requestDto.toDomain()).fold(
             ifLeft = { error ->
                 logger.error("Failed to create user: ${error.message}")
                 handleCreateUserError(error)
@@ -51,18 +49,9 @@ class UserController(
 
     @GetMapping("/{userId}/transactions")
     fun getUserTransactions(
-        @PathVariable userId: String
+        @PathVariable @ValidUserId userId: String
     ): ResponseEntity<*> = runBlocking {
         logger.info("Getting transactions for user: $userId")
-
-        if (userId.isBlank()) {
-            return@runBlocking ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponseDto(
-                    error = "INVALID_USER_ID",
-                    message = "User ID cannot be blank"
-                ))
-        }
 
         getUserTransactionsUseCase.invoke(userId).fold(
             ifLeft = { error ->

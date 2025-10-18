@@ -46,7 +46,7 @@ class DefaultWithdrawUseCase(
         ensure(wallet.balance >= amount) {
             logger.error("Insufficient balance for user $userId: requested $amount, available ${wallet.balance}")
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
-            WithdrawError.InsufficientBalance(requested = amount, available = wallet.balance)
+            WithdrawError.InsufficientBalance()
         }
 
         val updatedWallet = walletRepository.updateWalletBalance(wallet.id, wallet.balance - amount)

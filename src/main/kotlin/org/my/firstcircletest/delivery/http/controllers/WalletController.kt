@@ -6,6 +6,7 @@ import org.my.firstcircletest.delivery.http.dto.request.DepositRequestDto
 import org.my.firstcircletest.delivery.http.dto.request.TransferRequestDto
 import org.my.firstcircletest.delivery.http.dto.request.WithdrawRequestDto
 import org.my.firstcircletest.delivery.http.dto.response.*
+import org.my.firstcircletest.delivery.http.validation.ValidUserId
 import org.my.firstcircletest.domain.entities.Transfer
 import org.my.firstcircletest.domain.usecases.*
 import org.slf4j.LoggerFactory
@@ -15,7 +16,7 @@ import org.springframework.validation.annotation.Validated
 import org.springframework.web.bind.annotation.*
 
 @RestController
-@RequestMapping("/api/wallets")
+@RequestMapping("/api/users/{userId}/wallet")
 @Validated
 class WalletController(
     private val getWalletInfoUseCase: GetWalletInfoUseCase,
@@ -26,20 +27,11 @@ class WalletController(
 
     private val logger = LoggerFactory.getLogger(WalletController::class.java)
 
-    @GetMapping("/{userId}")
+    @GetMapping
     fun getWalletInfo(
-        @PathVariable userId: String
+        @PathVariable @ValidUserId userId: String
     ): ResponseEntity<*> = runBlocking {
         logger.info("Getting wallet info for user: $userId")
-
-        if (userId.isBlank()) {
-            return@runBlocking ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponseDto(
-                    error = "INVALID_USER_ID",
-                    message = "User ID cannot be blank"
-                ))
-        }
 
         getWalletInfoUseCase.invoke(userId).fold(
             ifLeft = { error ->
@@ -53,21 +45,12 @@ class WalletController(
         )
     }
 
-    @PostMapping("/{userId}/deposit")
+    @PostMapping("/deposit")
     fun deposit(
-        @PathVariable userId: String,
+        @PathVariable @ValidUserId userId: String,
         @Valid @RequestBody requestDto: DepositRequestDto
     ): ResponseEntity<*> = runBlocking {
         logger.info("Depositing ${requestDto.amount} for user: $userId")
-
-        if (userId.isBlank()) {
-            return@runBlocking ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponseDto(
-                    error = "INVALID_USER_ID",
-                    message = "User ID cannot be blank"
-                ))
-        }
 
         depositUseCase.invoke(userId, requestDto.amount).fold(
             ifLeft = { error ->
@@ -81,21 +64,12 @@ class WalletController(
         )
     }
 
-    @PostMapping("/{userId}/withdraw")
+    @PostMapping("/withdraw")
     fun withdraw(
-        @PathVariable userId: String,
+        @PathVariable @ValidUserId userId: String,
         @Valid @RequestBody requestDto: WithdrawRequestDto
     ): ResponseEntity<*> = runBlocking {
         logger.info("Withdrawing ${requestDto.amount} for user: $userId")
-
-        if (userId.isBlank()) {
-            return@runBlocking ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponseDto(
-                    error = "INVALID_USER_ID",
-                    message = "User ID cannot be blank"
-                ))
-        }
 
         withdrawUseCase.invoke(userId, requestDto.amount).fold(
             ifLeft = { error ->
@@ -109,21 +83,12 @@ class WalletController(
         )
     }
 
-    @PostMapping("/{userId}/transfer")
+    @PostMapping("/transfer")
     fun transfer(
-        @PathVariable userId: String,
+        @PathVariable @ValidUserId userId: String,
         @Valid @RequestBody requestDto: TransferRequestDto
     ): ResponseEntity<*> = runBlocking {
         logger.info("Transferring ${requestDto.amount} from user $userId to user ${requestDto.toUserId}")
-
-        if (userId.isBlank()) {
-            return@runBlocking ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponseDto(
-                    error = "INVALID_USER_ID",
-                    message = "User ID cannot be blank"
-                ))
-        }
 
         val transfer = Transfer(
             fromUserId = userId,
