@@ -20,6 +20,28 @@ repositories {
     mavenCentral()
 }
 
+sourceSets {
+    create("integrationTest") {
+        kotlin {
+            srcDir("src/integrationTest/kotlin")
+        }
+        resources {
+            srcDir("src/integrationTest/resources")
+        }
+        compileClasspath += sourceSets["main"].output + sourceSets["test"].output
+        runtimeClasspath += sourceSets["main"].output + sourceSets["test"].output
+    }
+}
+
+configurations {
+    getByName("integrationTestImplementation") {
+        extendsFrom(configurations["testImplementation"])
+    }
+    getByName("integrationTestRuntimeOnly") {
+        extendsFrom(configurations["testRuntimeOnly"])
+    }
+}
+
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
@@ -60,14 +82,14 @@ tasks.register<Test>("integrationTest") {
     description = "Runs integration tests"
     group = "verification"
 
-    useJUnitPlatform {
-        includeTags("integration")
-    }
+    testClassesDirs = sourceSets["integrationTest"].output.classesDirs
+    classpath = sourceSets["integrationTest"].runtimeClasspath
 
-    // Alternative: filter by class name pattern
-    filter {
-        includeTestsMatching("*IntegrationTest")
-    }
+    useJUnitPlatform()
 
     shouldRunAfter(tasks.test)
+}
+
+tasks.named("check") {
+    dependsOn(tasks.named("integrationTest"))
 }
