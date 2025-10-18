@@ -29,7 +29,6 @@ import java.util.*
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Transactional
 @Suppress("SpringJavaInjectionPointsAutowiringInspection")
 class GetUserTransactionsE2eTest {
 
