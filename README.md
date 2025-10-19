@@ -2,7 +2,7 @@
 
 ## Overview
 
-This repository contains the backend code for a Wallet Application built with Kotlin and Spring Boot. The application
+This repository contains the backend code for a Wallet Application built with Kotlin and Spring Boot WebFlux (reactive). The application
 supports basic wallet transactions:
 
 - Deposit: Users can deposit money into their wallets.
@@ -79,7 +79,7 @@ Notes:
 
 ## Technologies Used
 
-- Kotlin (JVM) + Spring Boot (Spring MVC, Spring Data JPA)
+- Kotlin (JVM) + Spring Boot (Spring WebFlux)
 - PostgreSQL
 - H2 (for integration and E2E tests)
 - Docker (for local DB)
