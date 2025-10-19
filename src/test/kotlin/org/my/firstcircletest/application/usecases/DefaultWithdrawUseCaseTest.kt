@@ -254,4 +254,105 @@ class DefaultWithdrawUseCaseTest {
             }
         )
     }
+
+    @Test
+    fun `should prevent overdraft when trying to withdraw 1100 from 1000 balance`() = runTest {
+        // Given
+        val userId = "user123"
+        val amount = 1100
+        val initialBalance = 1000
+        val wallet = Wallet(id = "wallet123", userId = userId, balance = initialBalance)
+
+        coEvery { walletRepository.getWalletByUserId(userId) } returns wallet.right()
+
+        // When
+        val result = useCase.invoke(userId, amount)
+
+        // Then
+        assertTrue(result.isLeft())
+        result.fold(
+            ifLeft = { error ->
+                assertTrue(error is WithdrawError.InsufficientBalance)
+                assertTrue(error.message.contains("Insufficient balance"))
+            },
+            ifRight = { }
+        )
+
+        // Verify no wallet update or transaction creation occurred
+        coVerify { walletRepository.getWalletByUserId(userId) }
+        coVerify(exactly = 0) { walletRepository.updateWalletBalance(any(), any()) }
+        coVerify(exactly = 0) { transactionRepository.create(any()) }
+    }
+
+    @Test
+    fun `should prevent overdraft with minimal shortfall`() = runTest {
+        // Given
+        val userId = "user123"
+        val amount = 1001
+        val initialBalance = 1000
+        val wallet = Wallet(id = "wallet123", userId = userId, balance = initialBalance)
+
+        coEvery { walletRepository.getWalletByUserId(userId) } returns wallet.right()
+
+        // When
+        val result = useCase.invoke(userId, amount)
+
+        // Then
+        assertTrue(result.isLeft())
+        result.fold(
+            ifLeft = { error ->
+                assertTrue(error is WithdrawError.InsufficientBalance)
+                assertEquals("Insufficient balance: requested 1001, available 1000", error.message)
+            },
+            ifRight = { }
+        )
+    }
+
+    @Test
+    fun `should handle large overdraft attempt`() = runTest {
+        // Given
+        val userId = "user123"
+        val amount = 10000
+        val initialBalance = 100
+        val wallet = Wallet(id = "wallet123", userId = userId, balance = initialBalance)
+
+        coEvery { walletRepository.getWalletByUserId(userId) } returns wallet.right()
+
+        // When
+        val result = useCase.invoke(userId, amount)
+
+        // Then
+        assertTrue(result.isLeft())
+        result.fold(
+            ifLeft = { error ->
+                assertTrue(error is WithdrawError.InsufficientBalance)
+            },
+            ifRight = { }
+        )
+    }
+
+    @Test
+    fun `should prevent overdraft when balance is zero`() = runTest {
+        // Given
+        val userId = "user123"
+        val amount = 100
+        val wallet = Wallet(id = "wallet123", userId = userId, balance = 0)
+
+        coEvery { walletRepository.getWalletByUserId(userId) } returns wallet.right()
+
+        // When
+        val result = useCase.invoke(userId, amount)
+
+        // Then
+        assertTrue(result.isLeft())
+        result.fold(
+            ifLeft = { error ->
+                assertTrue(error is WithdrawError.InsufficientBalance)
+                assertEquals("Insufficient balance: requested 100, available 0", error.message)
+            },
+            ifRight = { }
+        )
+
+        coVerify(exactly = 0) { walletRepository.updateWalletBalance(any(), any()) }
+    }
 }

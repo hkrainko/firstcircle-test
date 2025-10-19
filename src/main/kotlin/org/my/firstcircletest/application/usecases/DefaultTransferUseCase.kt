@@ -25,36 +25,44 @@ class DefaultTransferUseCase(
 
     @Transactional
     override suspend fun invoke(transfer: Transfer): Either<TransferError, Transfer> = either {
+        logger.info("Initiating transfer: ${transfer.amount} from user ${transfer.fromUserId} to user ${transfer.toUserId}")
+
         ensure(transfer.fromUserId.isNotBlank() && transfer.toUserId.isNotBlank()) {
-            logger.error("Invalid user IDs: ${transfer.fromUserId} or ${transfer.toUserId}")
+            logger.error("Invalid user IDs: fromUserId='${transfer.fromUserId}', toUserId='${transfer.toUserId}'")
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
             TransferError.InvalidUserId()
         }
         ensure(transfer.amount > 0) {
             logger.error("Transfer amount must be positive: ${transfer.amount}")
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
             TransferError.NonPositiveAmount()
         }
         ensure(transfer.fromUserId != transfer.toUserId) {
             logger.error("Transfer from and to the same user: ${transfer.fromUserId}")
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
             TransferError.SameUserTransfer()
         }
 
-        val fromWallet = walletRepository.getWalletByUserId(transfer.fromUserId).mapLeft {
-            logger.error("Failed to retrieve wallet for user ${transfer.fromUserId}", it)
-            TransferError.WalletNotFound()
+        val fromWallet = walletRepository.getWalletByUserId(transfer.fromUserId).mapLeft { repositoryError ->
+            logger.error("Failed to retrieve source wallet for user ${transfer.fromUserId}: ${repositoryError.message}", repositoryError)
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
+            TransferError.WalletNotFound("Source wallet not found for user ${transfer.fromUserId}")
         }.bind()
 
         ensure(fromWallet.balance >= transfer.amount) {
-            logger.error("Insufficient balance for user ${transfer.fromUserId}: requested ${transfer.amount}, available ${fromWallet.balance}")
-            TransferError.InsufficientBalance()
+            logger.warn("Transfer denied for user ${transfer.fromUserId}: Insufficient balance. Requested: ${transfer.amount}, Available: ${fromWallet.balance}, Shortfall: ${transfer.amount - fromWallet.balance}")
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
+            TransferError.InsufficientBalance("Insufficient balance: requested ${transfer.amount}, available ${fromWallet.balance}")
         }
 
         val updatedFromWallet =
             walletRepository.updateWalletBalance(fromWallet.id, fromWallet.balance - transfer.amount)
-                .mapLeft {
-                    logger.error("Failed to update wallet for user ${transfer.fromUserId}: $it")
-                    TransferError.WalletUpdateFailed()
+                .mapLeft { repositoryError ->
+                    logger.error("Failed to update source wallet for user ${transfer.fromUserId}: ${repositoryError.message}", repositoryError)
+                    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
+                    TransferError.WalletUpdateFailed("Failed to deduct from source wallet: ${repositoryError.message}")
                 }
-                .onRight { logger.info("Deducted ${transfer.amount} from user ${transfer.fromUserId}") }
+                .onRight { logger.info("Deducted ${transfer.amount} from user ${transfer.fromUserId}, new balance: ${it.balance}") }
                 .bind()
 
         val toWallet = walletRepository.getWalletByUserId(transfer.toUserId).mapLeft {

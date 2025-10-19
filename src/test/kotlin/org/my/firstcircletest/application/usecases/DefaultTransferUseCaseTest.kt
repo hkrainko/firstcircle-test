@@ -74,6 +74,138 @@ class DefaultTransferUseCaseTest {
         coVerify { transactionRepository.create(any()) }
     }
 
+        @Test
+        fun `should rollback entire transaction when destination wallet update fails`() = runTest {
+            // Given - simulates race condition where destination wallet becomes unavailable
+            val transfer = Transfer(
+                fromUserId = "user123",
+                toUserId = "user456",
+                amount = 500
+            )
+            val fromWallet = Wallet(id = "wallet123", userId = "user123", balance = 1000)
+            val toWallet = Wallet(id = "wallet456", userId = "user456", balance = 500)
+            val updatedFromWallet = fromWallet.copy(balance = 500)
+
+            coEvery { walletRepository.getWalletByUserId("user123") } returns fromWallet.right()
+            coEvery { walletRepository.updateWalletBalance("wallet123", 500) } returns updatedFromWallet.right()
+            coEvery { walletRepository.getWalletByUserId("user456") } returns toWallet.right()
+            coEvery { walletRepository.updateWalletBalance("wallet456", 1000) } returns RepositoryError.UpdateFailed("Concurrent modification detected").left()
+
+            // When
+            val result = useCase.invoke(transfer)
+
+            // Then
+            assertTrue(result.isLeft())
+            result.fold(
+                ifLeft = { error ->
+                    assertTrue(error is TransferError.WalletUpdateFailed)
+                },
+                ifRight = { }
+            )
+
+            // Verify rollback was triggered
+            coVerify { walletRepository.getWalletByUserId("user123") }
+            coVerify { walletRepository.updateWalletBalance("wallet123", 500) }
+            coVerify { walletRepository.getWalletByUserId("user456") }
+            coVerify { walletRepository.updateWalletBalance("wallet456", 1000) }
+            coVerify(exactly = 0) { transactionRepository.create(any()) }
+        }
+
+        @Test
+        fun `should prevent overdraft in transfer when trying to send 1100 from 1000 balance`() = runTest {
+            // Given
+            val transfer = Transfer(
+                fromUserId = "user123",
+                toUserId = "user456",
+                amount = 1100
+            )
+            val fromWallet = Wallet(id = "wallet123", userId = "user123", balance = 1000)
+
+            coEvery { walletRepository.getWalletByUserId("user123") } returns fromWallet.right()
+
+            // When
+            val result = useCase.invoke(transfer)
+
+            // Then
+            assertTrue(result.isLeft())
+            result.fold(
+                ifLeft = { error ->
+                    assertTrue(error is TransferError.InsufficientBalance)
+                    assertEquals("Insufficient balance: requested 1100, available 1000", error.message)
+                },
+                ifRight = { }
+            )
+
+            // Verify no updates occurred
+            coVerify { walletRepository.getWalletByUserId("user123") }
+            coVerify(exactly = 0) { walletRepository.updateWalletBalance(any(), any()) }
+            coVerify(exactly = 0) { transactionRepository.create(any()) }
+        }
+
+        @Test
+        fun `should ensure atomicity when transaction creation fails after both wallets updated`() = runTest {
+            // Given - simulates database failure during transaction logging
+            val transfer = Transfer(
+                fromUserId = "user123",
+                toUserId = "user456",
+                amount = 500
+            )
+            val fromWallet = Wallet(id = "wallet123", userId = "user123", balance = 1000)
+            val toWallet = Wallet(id = "wallet456", userId = "user456", balance = 500)
+            val updatedFromWallet = fromWallet.copy(balance = 500)
+            val updatedToWallet = toWallet.copy(balance = 1000)
+
+            coEvery { walletRepository.getWalletByUserId("user123") } returns fromWallet.right()
+            coEvery { walletRepository.updateWalletBalance("wallet123", 500) } returns updatedFromWallet.right()
+            coEvery { walletRepository.getWalletByUserId("user456") } returns toWallet.right()
+            coEvery { walletRepository.updateWalletBalance("wallet456", 1000) } returns updatedToWallet.right()
+            coEvery { transactionRepository.create(any()) } returns RepositoryError.CreationFailed("Transaction log failure").left()
+
+            // When
+            val result = useCase.invoke(transfer)
+
+            // Then
+            assertTrue(result.isLeft())
+            result.fold(
+                ifLeft = { error ->
+                    assertTrue(error is TransferError.TransactionCreationFailed)
+                },
+                ifRight = { }
+            )
+
+            // Verify all operations were attempted but transaction failed
+            coVerify { walletRepository.updateWalletBalance("wallet123", 500) }
+            coVerify { walletRepository.updateWalletBalance("wallet456", 1000) }
+            coVerify { transactionRepository.create(any()) }
+        }
+
+        @Test
+        fun `should handle race condition when source wallet balance changes concurrently`() = runTest {
+            // Given - simulates concurrent withdrawal reducing balance
+            val transfer = Transfer(
+                fromUserId = "user123",
+                toUserId = "user456",
+                amount = 900
+            )
+            val fromWallet = Wallet(id = "wallet123", userId = "user123", balance = 1000)
+
+            // Simulate concurrent modification: balance is 1000 when checked but update fails
+            coEvery { walletRepository.getWalletByUserId("user123") } returns fromWallet.right()
+            coEvery { walletRepository.updateWalletBalance("wallet123", 100) } returns RepositoryError.UpdateFailed("Optimistic locking failure").left()
+
+            // When
+            val result = useCase.invoke(transfer)
+
+            // Then
+            assertTrue(result.isLeft())
+            result.fold(
+                ifLeft = { error ->
+                    assertTrue(error is TransferError.WalletUpdateFailed)
+                },
+                ifRight = { }
+            )
+        }
+
     @Test
     fun `should return InvalidUserId when fromUserId is blank`() = runTest {
         // Given

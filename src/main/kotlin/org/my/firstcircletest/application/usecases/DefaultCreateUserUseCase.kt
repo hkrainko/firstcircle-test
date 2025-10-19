@@ -26,19 +26,22 @@ class DefaultCreateUserUseCase(
 
     @Transactional
     override suspend fun invoke(request: CreateUserRequest): Either<CreateUserError, User> = either {
-        val user = userRepository.createUser(request).mapLeft {
-            logger.error("Failed to create user: ${it.message}")
-            CreateUserError.UserCreationFailed()
+        logger.info("Creating user with name: ${request.name} and initial balance: ${request.initBalance}")
+
+        val user = userRepository.createUser(request).mapLeft { repositoryError ->
+            logger.error("Failed to create user '${request.name}': ${repositoryError.message}", repositoryError)
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
+            CreateUserError.UserCreationFailed("Failed to create user: ${repositoryError.message}")
         }.bind()
 
         logger.info("User created successfully: ${user.id}")
 
-        createWalletForNewUser(user.id, request.initBalance).onLeft {
-            logger.error("Failed to create wallet for user: ${user.id}, marking transaction for rollback")
+        createWalletForNewUser(user.id, request.initBalance).onLeft { walletError ->
+            logger.error("Failed to create wallet for user: ${user.id}, marking transaction for rollback. Error: ${walletError.message}")
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
         }.bind()
 
-        logger.info("Wallet created for user: ${user.id} with initial balance: ${request.initBalance}")
+        logger.info("Wallet created successfully for user: ${user.id} with initial balance: ${request.initBalance}")
 
         user
     }
@@ -48,8 +51,9 @@ class DefaultCreateUserUseCase(
             userId = userId,
             balance = initBalance
         )
-        walletRepository.createWallet(request).mapLeft {
-            CreateUserError.WalletCreationFailed()
+        walletRepository.createWallet(request).mapLeft { repositoryError ->
+            logger.error("Wallet creation failed for user $userId: ${repositoryError.message}", repositoryError)
+            CreateUserError.WalletCreationFailed("Failed to create wallet: ${repositoryError.message}")
         }.bind()
     }
 }
