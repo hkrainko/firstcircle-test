@@ -4,7 +4,6 @@ import arrow.core.left
 import arrow.core.right
 import io.mockk.*
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
@@ -14,31 +13,36 @@ import org.my.firstcircletest.domain.repositories.RepositoryError
 import org.my.firstcircletest.domain.repositories.TransactionRepository
 import org.my.firstcircletest.domain.repositories.WalletRepository
 import org.my.firstcircletest.domain.usecases.WithdrawError
-import org.springframework.transaction.interceptor.TransactionAspectSupport
+import org.springframework.transaction.reactive.TransactionalOperator
+import org.springframework.transaction.ReactiveTransaction
+import org.springframework.transaction.reactive.executeAndAwait
+import reactor.core.publisher.Mono
 
 class DefaultWithdrawUseCaseTest {
 
     private val walletRepository: WalletRepository = mockk()
     private val transactionRepository: TransactionRepository = mockk()
-    private val useCase = DefaultWithdrawUseCase(walletRepository, transactionRepository)
+    private val transactionalOperator: TransactionalOperator = mockk()
+    private val reactiveTransaction: ReactiveTransaction = mockk(relaxed = true)
+    private lateinit var useCase: DefaultWithdrawUseCase
 
     @BeforeEach
     fun setup() {
-        mockkStatic(TransactionAspectSupport::class)
-        every { TransactionAspectSupport.currentTransactionStatus() } returns mockk(relaxed = true)
-    }
+        mockkStatic("org.springframework.transaction.reactive.TransactionalOperatorExtensionsKt")
+        coEvery { transactionalOperator.executeAndAwait(any<suspend (ReactiveTransaction) -> Any?>()) } coAnswers {
+            val action = arg<suspend (ReactiveTransaction) -> Any?>(1)
+            action.invoke(reactiveTransaction)
+        }
 
-    @AfterEach
-    fun tearDown() {
-        unmockkStatic(TransactionAspectSupport::class)
+        useCase = DefaultWithdrawUseCase(walletRepository, transactionRepository, transactionalOperator)
     }
 
     @Test
     fun `should successfully withdraw amount from wallet`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 500
-        val initialBalance = 1000
+        val amount = 500L
+        val initialBalance = 1000L
         val wallet = Wallet(id = "wallet123", userId = userId, balance = initialBalance)
         val updatedWallet = wallet.copy(balance = initialBalance - amount)
 
@@ -68,7 +72,7 @@ class DefaultWithdrawUseCaseTest {
     fun `should return InvalidUserId when userId is blank`() = runTest {
         // Given
         val userId = ""
-        val amount = 500
+        val amount = 500L
 
         // When
         val result = useCase.invoke(userId, amount)
@@ -89,7 +93,7 @@ class DefaultWithdrawUseCaseTest {
     fun `should return NonPositiveAmount when amount is zero`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 0
+        val amount = 0L
 
         // When
         val result = useCase.invoke(userId, amount)
@@ -110,7 +114,7 @@ class DefaultWithdrawUseCaseTest {
     fun `should return NonPositiveAmount when amount is negative`() = runTest {
         // Given
         val userId = "user123"
-        val amount = -100
+        val amount = -100L
 
         // When
         val result = useCase.invoke(userId, amount)
@@ -129,7 +133,7 @@ class DefaultWithdrawUseCaseTest {
     fun `should return WalletNotFound when wallet does not exist`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 500
+        val amount = 500L
         val repositoryError = RepositoryError.NotFound("Wallet not found")
 
         coEvery { walletRepository.getWalletByUserId(userId) } returns repositoryError.left()
@@ -154,7 +158,7 @@ class DefaultWithdrawUseCaseTest {
     fun `should return InsufficientBalance when balance is less than amount`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 1500
+        val amount = 1500L
         val wallet = Wallet(id = "wallet123", userId = userId, balance = 1000)
 
         coEvery { walletRepository.getWalletByUserId(userId) } returns wallet.right()
@@ -179,7 +183,7 @@ class DefaultWithdrawUseCaseTest {
     fun `should return WalletUpdateFailed when wallet update fails`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 500
+        val amount = 500L
         val wallet = Wallet(id = "wallet123", userId = userId, balance = 1000)
         val repositoryError = RepositoryError.DatabaseError("Update failed")
 
@@ -206,7 +210,7 @@ class DefaultWithdrawUseCaseTest {
     fun `should return TransactionCreationFailed when transaction creation fails`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 500
+        val amount = 500L
         val wallet = Wallet(id = "wallet123", userId = userId, balance = 1000)
         val updatedWallet = wallet.copy(balance = 500)
         val repositoryError = RepositoryError.DatabaseError("Transaction creation failed")
@@ -234,7 +238,7 @@ class DefaultWithdrawUseCaseTest {
     fun `should allow withdrawal of entire balance`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 1000
+        val amount = 1000L
         val wallet = Wallet(id = "wallet123", userId = userId, balance = 1000)
         val updatedWallet = wallet.copy(balance = 0)
 
@@ -259,8 +263,8 @@ class DefaultWithdrawUseCaseTest {
     fun `should prevent overdraft when trying to withdraw 1100 from 1000 balance`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 1100
-        val initialBalance = 1000
+        val amount = 1100L
+        val initialBalance = 1000L
         val wallet = Wallet(id = "wallet123", userId = userId, balance = initialBalance)
 
         coEvery { walletRepository.getWalletByUserId(userId) } returns wallet.right()
@@ -288,8 +292,8 @@ class DefaultWithdrawUseCaseTest {
     fun `should prevent overdraft with minimal shortfall`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 1001
-        val initialBalance = 1000
+        val amount = 1001L
+        val initialBalance = 1000L
         val wallet = Wallet(id = "wallet123", userId = userId, balance = initialBalance)
 
         coEvery { walletRepository.getWalletByUserId(userId) } returns wallet.right()
@@ -312,8 +316,8 @@ class DefaultWithdrawUseCaseTest {
     fun `should handle large overdraft attempt`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 10000
-        val initialBalance = 100
+        val amount = 10000L
+        val initialBalance = 100L
         val wallet = Wallet(id = "wallet123", userId = userId, balance = initialBalance)
 
         coEvery { walletRepository.getWalletByUserId(userId) } returns wallet.right()
@@ -335,7 +339,7 @@ class DefaultWithdrawUseCaseTest {
     fun `should prevent overdraft when balance is zero`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 100
+        val amount = 100L
         val wallet = Wallet(id = "wallet123", userId = userId, balance = 0)
 
         coEvery { walletRepository.getWalletByUserId(userId) } returns wallet.right()

@@ -1,50 +1,49 @@
 package org.my.firstcircletest.data.repositories.postgres
 
 import arrow.core.getOrElse
-import jakarta.persistence.EntityManager
+import kotlinx.coroutines.reactor.awaitSingle
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.my.firstcircletest.domain.entities.CreateWalletRequest
 import org.my.firstcircletest.domain.repositories.RepositoryError
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
+import org.springframework.boot.test.autoconfigure.data.r2dbc.DataR2dbcTest
+import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
+import org.springframework.r2dbc.core.DatabaseClient
+import org.springframework.r2dbc.core.awaitSingleOrNull
 import org.springframework.test.context.ActiveProfiles
 import java.time.LocalDateTime
 import java.util.*
 
-@DataJpaTest
+@SpringBootTest
 @ActiveProfiles("test")
-@Import(PgWalletRepository::class)
 class PgWalletRepositoryIntegrationTest {
 
     @Autowired
     private lateinit var pgWalletRepository: PgWalletRepository
 
     @Autowired
-    private lateinit var entityManager: EntityManager
+    private lateinit var databaseClient: DatabaseClient
 
     private lateinit var testUserId: String
 
     @BeforeEach
-    fun setUp() {
+    fun setUp() = runTest {
         testUserId = "user-${UUID.randomUUID()}"
 
         // Create test user
-        entityManager.createNativeQuery(
-            "INSERT INTO users (id, name, created_at) VALUES (?, ?, ?)"
-        ).apply {
-            setParameter(1, testUserId.toString())
-            setParameter(2, "Test User")
-            setParameter(3, LocalDateTime.now())
-        }.executeUpdate()
-
-        entityManager.flush()
+        databaseClient.sql("INSERT INTO users (id, name, created_at) VALUES ($1, $2, $3)")
+            .bind(0, testUserId)
+            .bind(1, "Test User")
+            .bind(2, LocalDateTime.now())
+            .fetch().rowsUpdated().awaitSingle()
     }
 
     @Test
-    fun `createWallet should persist wallet successfully`() {
+    fun `createWallet should persist wallet successfully`() = runTest {
         // Given
         val request = CreateWalletRequest(userId = testUserId, balance = 100000)
 
@@ -61,17 +60,17 @@ class PgWalletRepositoryIntegrationTest {
         assertEquals(100000, result.balance)
 
         // Verify it was persisted
-        val found = entityManager.find(
-            org.my.firstcircletest.data.repositories.postgres.entities.WalletEntity::class.java,
-            result.id.toString()
-        )
+        val found = databaseClient.sql("SELECT * FROM wallets WHERE id = $1")
+            .bind(0, result.id)
+            .fetch()
+            .awaitSingleOrNull()
         assertNotNull(found)
-        assertEquals(testUserId.toString(), found.userId)
-        assertEquals(100000, found.balance)
+        assertEquals(testUserId, found?.get("user_id"))
+        assertEquals(100000L, found?.get("balance"))
     }
 
     @Test
-    fun `createWallet should create wallet with zero balance`() {
+    fun `createWallet should create wallet with zero balance`() = runTest {
         // Given
         val request = CreateWalletRequest(userId = testUserId, balance = 0)
 
@@ -86,7 +85,7 @@ class PgWalletRepositoryIntegrationTest {
     }
 
     @Test
-    fun `createWallet should create wallet with negative balance`() {
+    fun `createWallet should create wallet with negative balance`() = runTest {
         // Given
         val request = CreateWalletRequest(userId = testUserId, balance = -1000)
 
@@ -101,28 +100,23 @@ class PgWalletRepositoryIntegrationTest {
     }
 
     @Test
-    fun `createWallet should generate unique IDs for different wallets`() {
+    fun `createWallet should generate unique IDs for different wallets`() = runTest {
         // Given
         val userId1 = "user-${UUID.randomUUID()}"
         val userId2 = "user-${UUID.randomUUID()}"
 
         // Create users
-        entityManager.createNativeQuery(
-            "INSERT INTO users (id, name, created_at) VALUES (?, ?, ?)"
-        ).apply {
-            setParameter(1, userId1.toString())
-            setParameter(2, "User One")
-            setParameter(3, LocalDateTime.now())
-        }.executeUpdate()
+        databaseClient.sql("INSERT INTO users (id, name, created_at) VALUES ($1, $2, $3)")
+            .bind(0, userId1)
+            .bind(1, "User One")
+            .bind(2, LocalDateTime.now())
+            .fetch().rowsUpdated().awaitSingle()
 
-        entityManager.createNativeQuery(
-            "INSERT INTO users (id, name, created_at) VALUES (?, ?, ?)"
-        ).apply {
-            setParameter(1, userId2.toString())
-            setParameter(2, "User Two")
-            setParameter(3, LocalDateTime.now())
-        }.executeUpdate()
-        entityManager.flush()
+        databaseClient.sql("INSERT INTO users (id, name, created_at) VALUES ($1, $2, $3)")
+            .bind(0, userId2)
+            .bind(1, "User Two")
+            .bind(2, LocalDateTime.now())
+            .fetch().rowsUpdated().awaitSingle()
 
         val request1 = CreateWalletRequest(userId = userId1, balance = 10000)
         val request2 = CreateWalletRequest(userId = userId2, balance = 20000)
@@ -146,17 +140,14 @@ class PgWalletRepositoryIntegrationTest {
     }
 
     @Test
-    fun `getWalletByUserId should return wallet when it exists`() {
+    fun `getWalletByUserId should return wallet when it exists`() = runTest {
         // Given
         val walletId = "wallet-${UUID.randomUUID()}"
-        entityManager.createNativeQuery(
-            "INSERT INTO wallets (id, user_id, balance) VALUES (?, ?, ?)"
-        ).apply {
-            setParameter(1, walletId)
-            setParameter(2, testUserId.toString())
-            setParameter(3, 75000)
-        }.executeUpdate()
-        entityManager.flush()
+        databaseClient.sql("INSERT INTO wallets (id, user_id, balance) VALUES ($1, $2, $3)")
+            .bind(0, walletId)
+            .bind(1, testUserId)
+            .bind(2, 75000)
+            .fetch().rowsUpdated().awaitSingle()
 
         // When
         val eitherResult = pgWalletRepository.getWalletByUserId(testUserId)
@@ -166,12 +157,12 @@ class PgWalletRepositoryIntegrationTest {
         val result = eitherResult.getOrElse { fail("Expected Right but got Left") }
         assertNotNull(result)
         assertEquals(walletId, result.id)
-        assertEquals(testUserId.toString(), result.userId)
+        assertEquals(testUserId, result.userId)
         assertEquals(75000, result.balance)
     }
 
     @Test
-    fun `getWalletByUserId should return Left with NotFound when wallet does not exist`() {
+    fun `getWalletByUserId should return Left with NotFound when wallet does not exist`() = runTest {
         // Given
         val nonExistentUserId = "user-${UUID.randomUUID()}"
 
@@ -187,17 +178,14 @@ class PgWalletRepositoryIntegrationTest {
     }
 
     @Test
-    fun `updateWalletBalance should update balance successfully`() {
+    fun `updateWalletBalance should update balance successfully`() = runTest {
         // Given
         val walletId = "wallet-${UUID.randomUUID()}"
-        entityManager.createNativeQuery(
-            "INSERT INTO wallets (id, user_id, balance) VALUES (?, ?, ?)"
-        ).apply {
-            setParameter(1, walletId)
-            setParameter(2, testUserId.toString())
-            setParameter(3, 50000)
-        }.executeUpdate()
-        entityManager.flush()
+        databaseClient.sql("INSERT INTO wallets (id, user_id, balance) VALUES ($1, $2, $3)")
+            .bind(0, walletId)
+            .bind(1, testUserId)
+            .bind(2, 50000)
+            .fetch().rowsUpdated().awaitSingle()
 
         // When
         val eitherResult = pgWalletRepository.updateWalletBalance(walletId, 75000)
@@ -210,26 +198,22 @@ class PgWalletRepositoryIntegrationTest {
         assertEquals(75000, result.balance)
 
         // Verify it was updated in database
-        entityManager.clear()
-        val found = entityManager.find(
-            org.my.firstcircletest.data.repositories.postgres.entities.WalletEntity::class.java,
-            walletId
-        )
-        assertEquals(75000, found.balance)
+        val found = databaseClient.sql("SELECT * FROM wallets WHERE id = $1")
+            .bind(0, walletId)
+            .fetch()
+            .awaitSingleOrNull()
+        assertEquals(75000L, found?.get("balance"))
     }
 
     @Test
-    fun `updateWalletBalance should update balance to zero`() {
+    fun `updateWalletBalance should update balance to zero`() = runTest {
         // Given
         val walletId = "wallet-${UUID.randomUUID()}"
-        entityManager.createNativeQuery(
-            "INSERT INTO wallets (id, user_id, balance) VALUES (?, ?, ?)"
-        ).apply {
-            setParameter(1, walletId)
-            setParameter(2, testUserId.toString())
-            setParameter(3, 50000)
-        }.executeUpdate()
-        entityManager.flush()
+        databaseClient.sql("INSERT INTO wallets (id, user_id, balance) VALUES ($1, $2, $3)")
+            .bind(0, walletId)
+            .bind(1, testUserId)
+            .bind(2, 50000)
+            .fetch().rowsUpdated().awaitSingle()
 
         // When
         val eitherResult = pgWalletRepository.updateWalletBalance(walletId, 0)
@@ -241,17 +225,14 @@ class PgWalletRepositoryIntegrationTest {
     }
 
     @Test
-    fun `updateWalletBalance should update balance to negative value`() {
+    fun `updateWalletBalance should update balance to negative value`() = runTest {
         // Given
         val walletId = "wallet-${UUID.randomUUID()}"
-        entityManager.createNativeQuery(
-            "INSERT INTO wallets (id, user_id, balance) VALUES (?, ?, ?)"
-        ).apply {
-            setParameter(1, walletId)
-            setParameter(2, testUserId.toString())
-            setParameter(3, 50000)
-        }.executeUpdate()
-        entityManager.flush()
+        databaseClient.sql("INSERT INTO wallets (id, user_id, balance) VALUES ($1, $2, $3)")
+            .bind(0, walletId)
+            .bind(1, testUserId)
+            .bind(2, 50000)
+            .fetch().rowsUpdated().awaitSingle()
 
         // When
         val eitherResult = pgWalletRepository.updateWalletBalance(walletId, -5000)
@@ -263,7 +244,7 @@ class PgWalletRepositoryIntegrationTest {
     }
 
     @Test
-    fun `updateWalletBalance should return Left with NotFound when wallet does not exist`() {
+    fun `updateWalletBalance should return Left with NotFound when wallet does not exist`() = runTest {
         // Given
         val nonExistentWalletId = "wallet-${UUID.randomUUID()}"
 
@@ -279,17 +260,14 @@ class PgWalletRepositoryIntegrationTest {
     }
 
     @Test
-    fun `updateWalletBalance should handle multiple updates correctly`() {
+    fun `updateWalletBalance should handle multiple updates correctly`() = runTest {
         // Given
         val walletId = "wallet-${UUID.randomUUID()}"
-        entityManager.createNativeQuery(
-            "INSERT INTO wallets (id, user_id, balance) VALUES (?, ?, ?)"
-        ).apply {
-            setParameter(1, walletId)
-            setParameter(2, testUserId.toString())
-            setParameter(3, 10000)
-        }.executeUpdate()
-        entityManager.flush()
+        databaseClient.sql("INSERT INTO wallets (id, user_id, balance) VALUES ($1, $2, $3)")
+            .bind(0, walletId)
+            .bind(1, testUserId)
+            .bind(2, 10000)
+            .fetch().rowsUpdated().awaitSingle()
 
         // When
         val eitherResult1 = pgWalletRepository.updateWalletBalance(walletId, 20000)
@@ -308,16 +286,15 @@ class PgWalletRepositoryIntegrationTest {
         assertEquals(15000, result3.balance)
 
         // Verify final state
-        entityManager.clear()
-        val found = entityManager.find(
-            org.my.firstcircletest.data.repositories.postgres.entities.WalletEntity::class.java,
-            walletId
-        )
-        assertEquals(15000, found.balance)
+        val found = databaseClient.sql("SELECT * FROM wallets WHERE id = $1")
+            .bind(0, walletId)
+            .fetch()
+            .awaitSingleOrNull()
+        assertEquals(15000L, found?.get("balance"))
     }
 
     @Test
-    fun `getWalletByUserId should return correct wallet when multiple wallets exist`() {
+    fun `getWalletByUserId should return correct wallet when multiple wallets exist`() = runTest {
         // Given
         val userId1 = "user-${UUID.randomUUID()}"
         val userId2 = "user-${UUID.randomUUID()}"
@@ -325,39 +302,30 @@ class PgWalletRepositoryIntegrationTest {
         val walletId2 = UUID.randomUUID().toString()
 
         // Create users
-        entityManager.createNativeQuery(
-            "INSERT INTO users (id, name, created_at) VALUES (?, ?, ?)"
-        ).apply {
-            setParameter(1, userId1.toString())
-            setParameter(2, "User One")
-            setParameter(3, LocalDateTime.now())
-        }.executeUpdate()
+        databaseClient.sql("INSERT INTO users (id, name, created_at) VALUES ($1, $2, $3)")
+            .bind(0, userId1)
+            .bind(1, "User One")
+            .bind(2, LocalDateTime.now())
+            .fetch().rowsUpdated().awaitSingle()
 
-        entityManager.createNativeQuery(
-            "INSERT INTO users (id, name, created_at) VALUES (?, ?, ?)"
-        ).apply {
-            setParameter(1, userId2.toString())
-            setParameter(2, "User Two")
-            setParameter(3, LocalDateTime.now())
-        }.executeUpdate()
+        databaseClient.sql("INSERT INTO users (id, name, created_at) VALUES ($1, $2, $3)")
+            .bind(0, userId2)
+            .bind(1, "User Two")
+            .bind(2, LocalDateTime.now())
+            .fetch().rowsUpdated().awaitSingle()
 
         // Create wallets
-        entityManager.createNativeQuery(
-            "INSERT INTO wallets (id, user_id, balance) VALUES (?, ?, ?)"
-        ).apply {
-            setParameter(1, walletId1)
-            setParameter(2, userId1.toString())
-            setParameter(3, 10000)
-        }.executeUpdate()
+        databaseClient.sql("INSERT INTO wallets (id, user_id, balance) VALUES ($1, $2, $3)")
+            .bind(0, walletId1)
+            .bind(1, userId1)
+            .bind(2, 10000)
+            .fetch().rowsUpdated().awaitSingle()
 
-        entityManager.createNativeQuery(
-            "INSERT INTO wallets (id, user_id, balance) VALUES (?, ?, ?)"
-        ).apply {
-            setParameter(1, walletId2)
-            setParameter(2, userId2.toString())
-            setParameter(3, 20000)
-        }.executeUpdate()
-        entityManager.flush()
+        databaseClient.sql("INSERT INTO wallets (id, user_id, balance) VALUES ($1, $2, $3)")
+            .bind(0, walletId2)
+            .bind(1, userId2)
+            .bind(2, 20000)
+            .fetch().rowsUpdated().awaitSingle()
 
         // When
         val eitherResult1 = pgWalletRepository.getWalletByUserId(userId1)

@@ -2,30 +2,26 @@ package org.my.firstcircletest.data.repositories.postgres
 
 import arrow.core.Either
 import arrow.core.left
-import jakarta.persistence.EntityManager
 import org.my.firstcircletest.data.repositories.postgres.entities.WalletEntity
 import org.my.firstcircletest.domain.entities.CreateWalletRequest
 import org.my.firstcircletest.domain.entities.Wallet
 import org.my.firstcircletest.domain.repositories.RepositoryError
 import org.my.firstcircletest.domain.repositories.WalletRepository
 import org.slf4j.LoggerFactory
-import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
-import java.util.Optional
 import java.util.UUID
 
 @Repository
 class PgWalletRepository(
-    private val walletJpaRepository: WalletJpaRepository,
-    private val entityManager: EntityManager
+    private val walletReactiveRepository: WalletReactiveRepository
 ) : WalletRepository {
     private val logger = LoggerFactory.getLogger(PgWalletRepository::class.java)
 
-    override fun getWalletByUserId(userId: String): Either<RepositoryError, Wallet> {
+    override suspend fun getWalletByUserId(userId: String): Either<RepositoryError, Wallet> {
         return Either.catch {
-            val result = walletJpaRepository.findByUserId(userId.toString())
-                .orElse(null)
+            val result = walletReactiveRepository.findByUserId(userId)
 
             if (result == null) {
                 logger.error("PgWalletRepo.getWalletByUserId: no wallet found for user ID $userId")
@@ -40,17 +36,13 @@ class PgWalletRepository(
     }
 
     @Transactional
-    override fun createWallet(request: CreateWalletRequest): Either<RepositoryError, Wallet> {
+    override suspend fun createWallet(request: CreateWalletRequest): Either<RepositoryError, Wallet> {
         return Either.catch {
-            val walletId = "wallet-${UUID.randomUUID()}"
-
-            val walletEntity = WalletEntity(
-                id = walletId,
-                userId = request.userId.toString(),
+            val walletEntity = WalletEntity.newWallet(
+                userId = request.userId,
                 balance = request.balance
             )
-
-            val saved = walletJpaRepository.save(walletEntity)
+            val saved = walletReactiveRepository.save(walletEntity)
             saved.toDomain()
         }.mapLeft { e ->
             logger.error("PgWalletRepo.createWallet: error executing query", e)
@@ -59,10 +51,9 @@ class PgWalletRepository(
     }
 
     @Transactional
-    override fun updateWalletBalance(walletId: String, balance: Int): Either<RepositoryError, Wallet> {
+    override suspend fun updateWalletBalance(walletId: String, balance: Long): Either<RepositoryError, Wallet> {
         return Either.catch {
-            val wallet = walletJpaRepository.findById(walletId.toString())
-                .orElse(null)
+            val wallet = walletReactiveRepository.findById(walletId)
 
             if (wallet == null) {
                 logger.error("PgWalletRepo.updateWalletBalance: no wallet found with ID $walletId")
@@ -70,8 +61,7 @@ class PgWalletRepository(
             }
 
             wallet.balance = balance
-            val saved = walletJpaRepository.save(wallet)
-            entityManager.flush()
+            val saved = walletReactiveRepository.save(wallet)
             saved.toDomain()
         }.mapLeft { e ->
             logger.error("PgWalletRepo.updateWalletBalance: error executing query", e)
@@ -80,6 +70,6 @@ class PgWalletRepository(
     }
 }
 
-interface WalletJpaRepository : JpaRepository<WalletEntity, String> {
-    fun findByUserId(userId: String): Optional<WalletEntity>
+interface WalletReactiveRepository : CoroutineCrudRepository<WalletEntity, String> {
+    suspend fun findByUserId(userId: String): WalletEntity?
 }

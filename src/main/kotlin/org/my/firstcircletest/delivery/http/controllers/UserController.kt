@@ -1,7 +1,6 @@
 package org.my.firstcircletest.delivery.http.controllers
 
 import jakarta.validation.Valid
-import kotlinx.coroutines.runBlocking
 import org.my.firstcircletest.delivery.http.dto.request.CreateUserRequestDto
 import org.my.firstcircletest.delivery.http.dto.response.CreateUserResponseDto
 import org.my.firstcircletest.delivery.http.dto.response.ErrorResponseDto
@@ -28,12 +27,12 @@ class UserController(
     private val logger = LoggerFactory.getLogger(UserController::class.java)
 
     @PostMapping
-    fun createUser(
+    suspend fun createUser(
         @Valid @RequestBody requestDto: CreateUserRequestDto
-    ): ResponseEntity<*> = runBlocking {
+    ): ResponseEntity<*> {
         logger.info("Creating user with name: ${requestDto.name}")
 
-        createUserUseCase.invoke(requestDto.toDomain()).fold(
+        return createUserUseCase.invoke(requestDto.toDomain()).fold(
             ifLeft = { error ->
                 logger.error("Failed to create user: ${error.message}")
                 handleCreateUserError(error)
@@ -48,12 +47,12 @@ class UserController(
     }
 
     @GetMapping("/{userId}/transactions")
-    fun getUserTransactions(
+    suspend fun getUserTransactions(
         @PathVariable @ValidUserId userId: String
-    ): ResponseEntity<*> = runBlocking {
+    ): ResponseEntity<*> {
         logger.info("Getting transactions for user: $userId")
 
-        getUserTransactionsUseCase.invoke(userId).fold(
+        return getUserTransactionsUseCase.invoke(userId).fold(
             ifLeft = { error ->
                 logger.error("Failed to get transactions for user $userId: ${error.message}")
                 handleGetUserTransactionsError(error)

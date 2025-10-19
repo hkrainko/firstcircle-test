@@ -2,12 +2,10 @@ package org.my.firstcircletest.delivery.http.controllers
 
 import arrow.core.left
 import arrow.core.right
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
 import org.my.firstcircletest.delivery.http.dto.request.CreateUserRequestDto
 import org.my.firstcircletest.domain.entities.*
 import org.my.firstcircletest.domain.usecases.CreateUserError
@@ -15,24 +13,16 @@ import org.my.firstcircletest.domain.usecases.CreateUserUseCase
 import org.my.firstcircletest.domain.usecases.GetUserTransactionsError
 import org.my.firstcircletest.domain.usecases.GetUserTransactionsUseCase
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
-import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
-import org.springframework.web.bind.annotation.ExceptionHandler
-import org.springframework.web.bind.annotation.ResponseStatus
-import org.springframework.web.bind.annotation.RestControllerAdvice
-import org.springframework.test.context.junit.jupiter.SpringExtension
-import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import org.springframework.test.context.ContextConfiguration
+import org.springframework.test.web.reactive.server.WebTestClient
 import java.time.LocalDateTime
 
-@ExtendWith(SpringExtension::class)
-@WebMvcTest(UserController::class)
+@WebFluxTest
+@ContextConfiguration(classes = [UserControllerTest.TestConfig::class, UserController::class])
 class UserControllerTest {
 
     @TestConfiguration
@@ -42,28 +32,16 @@ class UserControllerTest {
 
         @Bean
         fun getUserTransactionsUseCase(): GetUserTransactionsUseCase = mockk()
-
-        @RestControllerAdvice
-        class TestExceptionHandler {
-            @ExceptionHandler(jakarta.validation.ConstraintViolationException::class)
-            @ResponseStatus(HttpStatus.BAD_REQUEST)
-            fun handleConstraintViolation(ex: jakarta.validation.ConstraintViolationException): Map<String, String> {
-                return mapOf("error" to "VALIDATION_ERROR", "message" to (ex.message ?: "Validation failed"))
-            }
-        }
     }
 
     @Autowired
-    private lateinit var mockMvc: MockMvc
+    private lateinit var webTestClient: WebTestClient
 
     @Autowired
     private lateinit var createUserUseCase: CreateUserUseCase
 
     @Autowired
     private lateinit var getUserTransactionsUseCase: GetUserTransactionsUseCase
-
-    @Autowired
-    private lateinit var objectMapper: ObjectMapper
 
     @Test
     fun `createUser should return CREATED status with user data on success`() = runTest {
@@ -75,14 +53,15 @@ class UserControllerTest {
         coEvery { createUserUseCase.invoke(createUserRequest) } returns expectedUser.right()
 
         // When & Then
-        mockMvc.perform(
-            post("/api/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isCreated)
-            .andExpect(jsonPath("$.user_id").value("user123"))
-            .andExpect(jsonPath("$.name").value("John Doe"))
+        webTestClient.post()
+            .uri("/api/users")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().isCreated
+            .expectBody()
+            .jsonPath("$.user_id").isEqualTo("user123")
+            .jsonPath("$.name").isEqualTo("John Doe")
     }
 
     @Test
@@ -95,14 +74,15 @@ class UserControllerTest {
         coEvery { createUserUseCase.invoke(createUserRequest) } returns error.left()
 
         // When & Then
-        mockMvc.perform(
-            post("/api/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isInternalServerError)
-            .andExpect(jsonPath("$.error").value("USER_CREATION_FAILED"))
-            .andExpect(jsonPath("$.message").value("Database error"))
+        webTestClient.post()
+            .uri("/api/users")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().is5xxServerError
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("USER_CREATION_FAILED")
+            .jsonPath("$.message").isEqualTo("Database error")
     }
 
     @Test
@@ -115,14 +95,15 @@ class UserControllerTest {
         coEvery { createUserUseCase.invoke(createUserRequest) } returns error.left()
 
         // When & Then
-        mockMvc.perform(
-            post("/api/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isInternalServerError)
-            .andExpect(jsonPath("$.error").value("WALLET_CREATION_FAILED"))
-            .andExpect(jsonPath("$.message").value("Wallet service unavailable"))
+        webTestClient.post()
+            .uri("/api/users")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().is5xxServerError
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("WALLET_CREATION_FAILED")
+            .jsonPath("$.message").isEqualTo("Wallet service unavailable")
     }
 
     @Test
@@ -131,12 +112,12 @@ class UserControllerTest {
         val requestDto = CreateUserRequestDto(name = "")
 
         // When & Then
-        mockMvc.perform(
-            post("/api/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isBadRequest)
+        webTestClient.post()
+            .uri("/api/users")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().isBadRequest
     }
 
     @Test
@@ -170,20 +151,16 @@ class UserControllerTest {
         coEvery { getUserTransactionsUseCase.invoke(userId) } returns transactions.right()
 
         // When & Then
-        mockMvc.perform(get("/api/users/$userId/transactions"))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.user_id").value(userId))
-            .andExpect(jsonPath("$.transactions").isArray)
-            .andExpect(jsonPath("$.transactions.length()").value(2))
-            .andExpect(jsonPath("$.transactions[0].transaction_id").value("tx1"))
-            .andExpect(jsonPath("$.transactions[1].transaction_id").value("tx2"))
-    }
-
-    @Test
-    fun `getUserTransactions should return BAD_REQUEST when userId is blank`() {
-        // When & Then
-        mockMvc.perform(get("/api/users/ /transactions"))
-            .andExpect(status().isBadRequest) // Spring validation catches blank userId
+        webTestClient.get()
+            .uri("/api/users/$userId/transactions")
+            .exchange()
+            .expectStatus().isOk
+            .expectBody()
+            .jsonPath("$.user_id").isEqualTo(userId)
+            .jsonPath("$.transactions").isArray
+            .jsonPath("$.transactions.length()").isEqualTo(2)
+            .jsonPath("$.transactions[0].transaction_id").isEqualTo("tx1")
+            .jsonPath("$.transactions[1].transaction_id").isEqualTo("tx2")
     }
 
     @Test
@@ -195,10 +172,13 @@ class UserControllerTest {
         coEvery { getUserTransactionsUseCase.invoke(userId) } returns error.left()
 
         // When & Then
-        mockMvc.perform(get("/api/users/$userId/transactions"))
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("INVALID_USER_ID"))
-            .andExpect(jsonPath("$.message").value("Invalid user ID format"))
+        webTestClient.get()
+            .uri("/api/users/$userId/transactions")
+            .exchange()
+            .expectStatus().isBadRequest
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("INVALID_USER_ID")
+            .jsonPath("$.message").isEqualTo("Invalid user ID format")
     }
 
     @Test
@@ -210,9 +190,12 @@ class UserControllerTest {
         coEvery { getUserTransactionsUseCase.invoke(userId) } returns error.left()
 
         // When & Then
-        mockMvc.perform(get("/api/users/$userId/transactions"))
-            .andExpect(status().isInternalServerError)
-            .andExpect(jsonPath("$.error").value("TRANSACTION_RETRIEVAL_FAILED"))
-            .andExpect(jsonPath("$.message").value("Database connection error"))
+        webTestClient.get()
+            .uri("/api/users/$userId/transactions")
+            .exchange()
+            .expectStatus().is5xxServerError
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("TRANSACTION_RETRIEVAL_FAILED")
+            .jsonPath("$.message").isEqualTo("Database connection error")
     }
 }

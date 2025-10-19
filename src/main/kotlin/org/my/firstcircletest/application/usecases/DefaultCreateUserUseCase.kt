@@ -13,40 +13,44 @@ import org.my.firstcircletest.domain.usecases.CreateUserUseCase
 import org.my.firstcircletest.domain.usecases.DepositUseCase
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
-import org.springframework.transaction.interceptor.TransactionAspectSupport
+import org.springframework.transaction.reactive.TransactionalOperator
+import org.springframework.transaction.reactive.executeAndAwait
 
 @Service
 class DefaultCreateUserUseCase(
     private val userRepository: UserRepository,
     private val walletRepository: WalletRepository,
+    private val transactionalOperator: TransactionalOperator
 ) : CreateUserUseCase {
 
     private val logger = LoggerFactory.getLogger(DefaultCreateUserUseCase::class.java)
 
-    @Transactional
-    override suspend fun invoke(request: CreateUserRequest): Either<CreateUserError, User> = either {
-        logger.info("Creating user with name: ${request.name} and initial balance: ${request.initBalance}")
+    override suspend fun invoke(request: CreateUserRequest): Either<CreateUserError, User> {
+        return transactionalOperator.executeAndAwait { transaction ->
+            either {
+                logger.info("Creating user with name: ${request.name} and initial balance: ${request.initBalance}")
 
-        val user = userRepository.createUser(request).mapLeft { repositoryError ->
-            logger.error("Failed to create user '${request.name}': ${repositoryError.message}", repositoryError)
-            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
-            CreateUserError.UserCreationFailed("Failed to create user: ${repositoryError.message}")
-        }.bind()
+                val user = userRepository.createUser(request).mapLeft { repositoryError ->
+                    logger.error("Failed to create user '${request.name}': ${repositoryError.message}", repositoryError)
+                    transaction.setRollbackOnly()
+                    CreateUserError.UserCreationFailed("Failed to create user: ${repositoryError.message}")
+                }.bind()
 
-        logger.info("User created successfully: ${user.id}")
+                logger.info("User created successfully: ${user.id}")
 
-        createWalletForNewUser(user.id, request.initBalance).onLeft { walletError ->
-            logger.error("Failed to create wallet for user: ${user.id}, marking transaction for rollback. Error: ${walletError.message}")
-            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly()
-        }.bind()
+                createWalletForNewUser(user.id, request.initBalance).onLeft { walletError ->
+                    logger.error("Failed to create wallet for user: ${user.id}, marking transaction for rollback. Error: ${walletError.message}")
+                    transaction.setRollbackOnly()
+                }.bind()
 
-        logger.info("Wallet created successfully for user: ${user.id} with initial balance: ${request.initBalance}")
+                logger.info("Wallet created successfully for user: ${user.id} with initial balance: ${request.initBalance}")
 
-        user
+                user
+            }
+        }
     }
 
-    private fun createWalletForNewUser(userId: UserID, initBalance: Int): Either<CreateUserError, Unit> = either {
+    private suspend fun createWalletForNewUser(userId: UserID, initBalance: Long): Either<CreateUserError, Unit> = either {
         val request = CreateWalletRequest(
             userId = userId,
             balance = initBalance

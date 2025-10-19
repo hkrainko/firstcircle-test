@@ -1,7 +1,6 @@
 package org.my.firstcircletest.delivery.http.controllers
 
 import jakarta.validation.Valid
-import kotlinx.coroutines.runBlocking
 import org.my.firstcircletest.delivery.http.dto.request.DepositRequestDto
 import org.my.firstcircletest.delivery.http.dto.request.TransferRequestDto
 import org.my.firstcircletest.delivery.http.dto.request.WithdrawRequestDto
@@ -28,12 +27,12 @@ class WalletController(
     private val logger = LoggerFactory.getLogger(WalletController::class.java)
 
     @GetMapping
-    fun getWalletInfo(
+    suspend fun getWalletInfo(
         @PathVariable @ValidUserId userId: String
-    ): ResponseEntity<*> = runBlocking {
+    ): ResponseEntity<*> {
         logger.info("Getting wallet info for user: $userId")
 
-        getWalletInfoUseCase.invoke(userId).fold(
+        return getWalletInfoUseCase.invoke(userId).fold(
             ifLeft = { error ->
                 logger.error("Failed to get wallet info for user $userId: ${error.message}")
                 handleGetWalletInfoError(error)
@@ -46,13 +45,13 @@ class WalletController(
     }
 
     @PostMapping("/deposit")
-    fun deposit(
+    suspend fun deposit(
         @PathVariable @ValidUserId userId: String,
         @Valid @RequestBody requestDto: DepositRequestDto
-    ): ResponseEntity<*> = runBlocking {
+    ): ResponseEntity<*> {
         logger.info("Depositing ${requestDto.amount} for user: $userId")
 
-        depositUseCase.invoke(userId, requestDto.amount).fold(
+        return depositUseCase.invoke(userId, requestDto.amount).fold(
             ifLeft = { error ->
                 logger.error("Failed to deposit for user $userId: ${error.message}")
                 handleDepositError(error)
@@ -65,13 +64,13 @@ class WalletController(
     }
 
     @PostMapping("/withdraw")
-    fun withdraw(
+    suspend fun withdraw(
         @PathVariable @ValidUserId userId: String,
         @Valid @RequestBody requestDto: WithdrawRequestDto
-    ): ResponseEntity<*> = runBlocking {
+    ): ResponseEntity<*> {
         logger.info("Withdrawing ${requestDto.amount} for user: $userId")
 
-        withdrawUseCase.invoke(userId, requestDto.amount).fold(
+        return withdrawUseCase.invoke(userId, requestDto.amount).fold(
             ifLeft = { error ->
                 logger.error("Failed to withdraw for user $userId: ${error.message}")
                 handleWithdrawError(error)
@@ -84,10 +83,10 @@ class WalletController(
     }
 
     @PostMapping("/transfer")
-    fun transfer(
+    suspend fun transfer(
         @PathVariable @ValidUserId userId: String,
         @Valid @RequestBody requestDto: TransferRequestDto
-    ): ResponseEntity<*> = runBlocking {
+    ): ResponseEntity<*> {
         logger.info("Transferring ${requestDto.amount} from user $userId to user ${requestDto.toUserId}")
 
         val transfer = Transfer(
@@ -96,7 +95,7 @@ class WalletController(
             amount = requestDto.amount
         )
 
-        transferUseCase.invoke(transfer).fold(
+        return transferUseCase.invoke(transfer).fold(
             ifLeft = { error ->
                 logger.error("Failed to transfer from user $userId to ${requestDto.toUserId}: ${error.message}")
                 handleTransferError(error)

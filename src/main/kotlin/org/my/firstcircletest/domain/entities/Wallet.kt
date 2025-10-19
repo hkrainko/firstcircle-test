@@ -5,5 +5,5 @@ typealias WalletID = String
 data class Wallet(
     val id: WalletID,
     val userId: UserID,
-    val balance: Int
+    val balance: Long
 )

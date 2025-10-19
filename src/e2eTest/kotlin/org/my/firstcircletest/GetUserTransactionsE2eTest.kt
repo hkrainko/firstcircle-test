@@ -1,12 +1,13 @@
 package org.my.firstcircletest
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.my.firstcircletest.data.repositories.postgres.TransactionJpaRepository
-import org.my.firstcircletest.data.repositories.postgres.UserJpaRepository
-import org.my.firstcircletest.data.repositories.postgres.WalletJpaRepository
+import org.my.firstcircletest.data.repositories.postgres.TransactionReactiveRepository
+import org.my.firstcircletest.data.repositories.postgres.UserReactiveRepository
+import org.my.firstcircletest.data.repositories.postgres.WalletReactiveRepository
 import org.my.firstcircletest.data.repositories.postgres.entities.TransactionEntity
 import org.my.firstcircletest.delivery.http.dto.request.CreateUserRequestDto
 import org.my.firstcircletest.delivery.http.dto.response.CreateUserResponseDto
@@ -14,48 +15,41 @@ import org.my.firstcircletest.delivery.http.dto.response.GetUserTransactionsResp
 import org.my.firstcircletest.domain.entities.TransactionStatus
 import org.my.firstcircletest.domain.entities.TransactionType
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
 import org.springframework.test.context.ActiveProfiles
-import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.test.web.reactive.server.WebTestClient
 import java.time.LocalDateTime
-import java.util.*
 
-@SpringBootTest
-@AutoConfigureMockMvc
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @Suppress("SpringJavaInjectionPointsAutowiringInspection")
 class GetUserTransactionsE2eTest {
 
     @Autowired
-    private lateinit var mockMvc: MockMvc
+    private lateinit var webTestClient: WebTestClient
 
     @Autowired
     private lateinit var objectMapper: ObjectMapper
 
     @Autowired
-    private lateinit var userJpaRepository: UserJpaRepository
+    private lateinit var userReactiveRepository: UserReactiveRepository
 
     @Autowired
-    private lateinit var walletJpaRepository: WalletJpaRepository
+    private lateinit var walletReactiveRepository: WalletReactiveRepository
 
     @Autowired
-    private lateinit var transactionJpaRepository: TransactionJpaRepository
+    private lateinit var transactionReactiveRepository: TransactionReactiveRepository
 
     private lateinit var testUserId: String
     private lateinit var testWalletId: String
 
     @BeforeEach
-    fun setUp() {
+    fun setUp() = runBlocking {
         // Clean up database before each test
-        transactionJpaRepository.deleteAll()
-        walletJpaRepository.deleteAll()
-        userJpaRepository.deleteAll()
+        transactionReactiveRepository.deleteAll()
+        walletReactiveRepository.deleteAll()
+        userReactiveRepository.deleteAll()
 
         // Create a test user with initial balance
         val createUserRequest = CreateUserRequestDto(
@@ -63,45 +57,40 @@ class GetUserTransactionsE2eTest {
             initBalance = 1000
         )
 
-        val result = mockMvc.perform(
-            post("/api/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(createUserRequest))
-        )
-            .andExpect(status().isCreated)
-            .andReturn()
-
-        val response = objectMapper.readValue(
-            result.response.contentAsString,
-            CreateUserResponseDto::class.java
-        )
+        val response = webTestClient.post()
+            .uri("/api/users")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(createUserRequest)
+            .exchange()
+            .expectStatus().isCreated
+            .expectBody(CreateUserResponseDto::class.java)
+            .returnResult()
+            .responseBody!!
 
         testUserId = response.userId
 
         // Get the wallet ID for the created user
-        val wallet = walletJpaRepository.findByUserId(testUserId)
-        assertTrue(wallet.isPresent)
-        testWalletId = wallet.get().id
+        val wallet = walletReactiveRepository.findByUserId(testUserId)
+        assertNotNull(wallet)
+        testWalletId = wallet!!.id
     }
 
     @Test
     fun `should return empty transactions list for user with no transactions`() {
-        // When
-        val result = mockMvc.perform(
-            get("/api/users/$testUserId/transactions")
-                .contentType(MediaType.APPLICATION_JSON)
-        )
-
-        // Then
-        result
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.user_id").value(testUserId))
-            .andExpect(jsonPath("$.transactions").isArray)
-            .andExpect(jsonPath("$.transactions").isEmpty)
+        // When & Then
+        webTestClient.get()
+            .uri("/api/users/$testUserId/transactions")
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isOk
+            .expectBody()
+            .jsonPath("$.user_id").isEqualTo(testUserId)
+            .jsonPath("$.transactions").isArray
+            .jsonPath("$.transactions").isEmpty
     }
 
     @Test
-    fun `should return transactions after creating deposits`() {
+    fun `should return transactions after creating deposits`() = runBlocking {
         // Given - Create deposit transactions
         createTransaction(
             walletId = testWalletId,
@@ -120,30 +109,25 @@ class GetUserTransactionsE2eTest {
         )
 
         // When
-        val result = mockMvc.perform(
-            get("/api/users/$testUserId/transactions")
-                .contentType(MediaType.APPLICATION_JSON)
-        )
+        val responseBody = webTestClient.get()
+            .uri("/api/users/$testUserId/transactions")
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isOk
+            .expectBody(GetUserTransactionsResponseDto::class.java)
+            .returnResult()
+            .responseBody!!
 
         // Then
-        result
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.user_id").value(testUserId))
-            .andExpect(jsonPath("$.transactions").isArray)
-            .andExpect(jsonPath("$.transactions.length()").value(2))
-            .andExpect(jsonPath("$.transactions[0].type").value("DEPOSIT"))
-            .andExpect(jsonPath("$.transactions[1].type").value("DEPOSIT"))
-
-        val responseJson = result.andReturn().response.contentAsString
-        val response = objectMapper.readValue(responseJson, GetUserTransactionsResponseDto::class.java)
-
-        assertEquals(2, response.transactions.size)
-        assertTrue(response.transactions.any { it.amount == 500 })
-        assertTrue(response.transactions.any { it.amount == 300 })
+        assertEquals(testUserId, responseBody.userId)
+        assertEquals(2, responseBody.transactions.size)
+        assertTrue(responseBody.transactions.all { it.type == "DEPOSIT" })
+        assertTrue(responseBody.transactions.any { it.amount == 500L })
+        assertTrue(responseBody.transactions.any { it.amount == 300L })
     }
 
     @Test
-    fun `should return transactions of different types`() {
+    fun `should return transactions of different types`() = runBlocking {
         // Given - Create different transaction types
         createTransaction(
             walletId = testWalletId,
@@ -170,20 +154,17 @@ class GetUserTransactionsE2eTest {
         )
 
         // When
-        val result = mockMvc.perform(
-            get("/api/users/$testUserId/transactions")
-                .contentType(MediaType.APPLICATION_JSON)
-        )
+        val response = webTestClient.get()
+            .uri("/api/users/$testUserId/transactions")
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isOk
+            .expectBody(GetUserTransactionsResponseDto::class.java)
+            .returnResult()
+            .responseBody!!
 
         // Then
-        result
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.user_id").value(testUserId))
-            .andExpect(jsonPath("$.transactions.length()").value(3))
-
-        val responseJson = result.andReturn().response.contentAsString
-        val response = objectMapper.readValue(responseJson, GetUserTransactionsResponseDto::class.java)
-
+        assertEquals(testUserId, response.userId)
         assertEquals(3, response.transactions.size)
         assertEquals(2, response.transactions.count { it.type == "DEPOSIT" })
         assertEquals(1, response.transactions.count { it.type == "WITHDRAWAL" })
@@ -192,7 +173,7 @@ class GetUserTransactionsE2eTest {
     }
 
     @Test
-    fun `should return transactions in descending order by created date`() {
+    fun `should return transactions in descending order by created date`() = runBlocking {
         // Given - Create transactions with delays
         val transaction1 = createTransaction(
             walletId = testWalletId,
@@ -222,15 +203,16 @@ class GetUserTransactionsE2eTest {
         )
 
         // When
-        val result = mockMvc.perform(
-            get("/api/users/$testUserId/transactions")
-                .contentType(MediaType.APPLICATION_JSON)
-        )
+        val response = webTestClient.get()
+            .uri("/api/users/$testUserId/transactions")
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isOk
+            .expectBody(GetUserTransactionsResponseDto::class.java)
+            .returnResult()
+            .responseBody!!
 
         // Then
-        val responseJson = result.andReturn().response.contentAsString
-        val response = objectMapper.readValue(responseJson, GetUserTransactionsResponseDto::class.java)
-
         assertEquals(3, response.transactions.size)
         // Most recent transaction should be first
         assertEquals(transaction3.id, response.transactions[0].transactionId)
@@ -244,14 +226,15 @@ class GetUserTransactionsE2eTest {
         val nonExistentUserId = "user-00000000-0000-0000-0000-000000000000"
 
         // When & Then
-        mockMvc.perform(
-            get("/api/users/$nonExistentUserId/transactions")
-                .contentType(MediaType.APPLICATION_JSON)
-        )
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.user_id").value(nonExistentUserId))
-            .andExpect(jsonPath("$.transactions").isArray)
-            .andExpect(jsonPath("$.transactions").isEmpty)
+        webTestClient.get()
+            .uri("/api/users/$nonExistentUserId/transactions")
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isOk
+            .expectBody()
+            .jsonPath("$.user_id").isEqualTo(nonExistentUserId)
+            .jsonPath("$.transactions").isArray
+            .jsonPath("$.transactions").isEmpty
     }
 
     @Test
@@ -262,77 +245,48 @@ class GetUserTransactionsE2eTest {
             initBalance = 500
         )
 
-        val result = mockMvc.perform(
-            post("/api/users")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(createUserRequest))
-        )
-            .andExpect(status().isCreated)
-            .andReturn()
+        val newUser = webTestClient.post()
+            .uri("/api/users")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(createUserRequest)
+            .exchange()
+            .expectStatus().isCreated
+            .expectBody(CreateUserResponseDto::class.java)
+            .returnResult()
+            .responseBody!!
 
-        val newUser = objectMapper.readValue(
-            result.response.contentAsString,
-            CreateUserResponseDto::class.java
-        )
-
-        // When
-        val transactionsResult = mockMvc.perform(
-            get("/api/users/${newUser.userId}/transactions")
-                .contentType(MediaType.APPLICATION_JSON)
-        )
-
-        // Then
-        transactionsResult
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.user_id").value(newUser.userId))
-            .andExpect(jsonPath("$.transactions").isArray)
-            .andExpect(jsonPath("$.transactions").isEmpty)
+        // When & Then
+        webTestClient.get()
+            .uri("/api/users/${newUser.userId}/transactions")
+            .accept(MediaType.APPLICATION_JSON)
+            .exchange()
+            .expectStatus().isOk
+            .expectBody()
+            .jsonPath("$.user_id").isEqualTo(newUser.userId)
+            .jsonPath("$.transactions").isArray
+            .jsonPath("$.transactions").isEmpty
     }
 
     // Helper methods
 
-    private fun createTransaction(
+    private suspend fun createTransaction(
         walletId: String,
         userId: String,
         type: TransactionType,
-        amount: Int,
+        amount: Long,
         status: TransactionStatus,
         createdAt: LocalDateTime = LocalDateTime.now()
     ): TransactionEntity {
-        val transaction = TransactionEntity(
-            id = "tx-${UUID.randomUUID()}",
+        val transaction = TransactionEntity.newTransactionEntity(
             walletId = walletId,
             userId = userId,
+            destinationWalletId = null,
+            destinationUserId = null,
             amount = amount,
-            type = type.name,
-            status = status.name,
+            type = type,
+            status = status,
             createdAt = createdAt,
-            updatedAt = createdAt
         )
-        return transactionJpaRepository.save(transaction)
-    }
-
-    private fun createTransferTransaction(
-        walletId: String,
-        userId: String,
-        destinationWalletId: String,
-        destinationUserId: String,
-        amount: Int,
-        status: TransactionStatus,
-        createdAt: LocalDateTime = LocalDateTime.now()
-    ): TransactionEntity {
-        val transaction = TransactionEntity(
-            id = "tx-${UUID.randomUUID()}",
-            walletId = walletId,
-            userId = userId,
-            destinationWalletId = destinationWalletId,
-            destinationUserId = destinationUserId,
-            amount = amount,
-            type = TransactionType.TRANSFER.name,
-            status = status.name,
-            createdAt = createdAt,
-            updatedAt = createdAt
-        )
-        return transactionJpaRepository.save(transaction)
+        return transactionReactiveRepository.save(transaction)
     }
 }

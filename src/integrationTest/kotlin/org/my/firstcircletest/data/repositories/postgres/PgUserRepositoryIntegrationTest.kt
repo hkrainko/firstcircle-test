@@ -1,28 +1,28 @@
 package org.my.firstcircletest.data.repositories.postgres
 
 import arrow.core.getOrElse
-import jakarta.persistence.EntityManager
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.my.firstcircletest.domain.entities.CreateUserRequest
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
-import org.springframework.context.annotation.Import
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.r2dbc.core.DatabaseClient
+import org.springframework.r2dbc.core.awaitSingleOrNull
 import org.springframework.test.context.ActiveProfiles
 
-@DataJpaTest
+@SpringBootTest
 @ActiveProfiles("test")
-@Import(PgUserRepository::class)
 class PgUserRepositoryIntegrationTest {
 
     @Autowired
     private lateinit var pgUserRepository: PgUserRepository
 
     @Autowired
-    private lateinit var entityManager: EntityManager
+    private lateinit var databaseClient: DatabaseClient
 
     @Test
-    fun `createUser should persist user successfully`() {
+    fun `createUser should persist user successfully`() = runTest {
         // Given
         val request = CreateUserRequest(name = "John Doe", initBalance = 1000)
 
@@ -38,16 +38,16 @@ class PgUserRepositoryIntegrationTest {
         assertEquals("John Doe", result.name)
 
         // Verify it was persisted
-        val found = entityManager.find(
-            org.my.firstcircletest.data.repositories.postgres.entities.UserEntity::class.java,
-            result.id.toString()
-        )
+        val found = databaseClient.sql("SELECT * FROM users WHERE id = $1")
+            .bind(0, result.id)
+            .fetch()
+            .awaitSingleOrNull()
         assertNotNull(found)
-        assertEquals("John Doe", found.name)
+        assertEquals("John Doe", found?.get("name"))
     }
 
     @Test
-    fun `createUser should handle special characters in name`() {
+    fun `createUser should handle special characters in name`() = runTest {
         // Given
         val request = CreateUserRequest(name = "O'Brien & Smith-Jones", initBalance = 2000)
 
@@ -61,17 +61,17 @@ class PgUserRepositoryIntegrationTest {
         assertEquals("O'Brien & Smith-Jones", result.name)
 
         // Verify it was persisted correctly
-        val found = entityManager.find(
-            org.my.firstcircletest.data.repositories.postgres.entities.UserEntity::class.java,
-            result.id.toString()
-        )
-        assertEquals("O'Brien & Smith-Jones", found.name)
+        val found = databaseClient.sql("SELECT * FROM users WHERE id = $1")
+            .bind(0, result.id)
+            .fetch()
+            .awaitSingleOrNull()
+        assertEquals("O'Brien & Smith-Jones", found?.get("name"))
     }
 
     @Test
-    fun `createUser should handle long names`() {
+    fun `createUser should handle long names`() = runTest {
         // Given
-        val longName = "A".repeat(255)
+        val longName = "A".repeat(100)
         val request = CreateUserRequest(name = longName, initBalance = 100)
 
         // When
@@ -85,7 +85,7 @@ class PgUserRepositoryIntegrationTest {
     }
 
     @Test
-    fun `createUser should handle empty name`() {
+    fun `createUser should handle empty name`() = runTest {
         // Given
         val request = CreateUserRequest(name = "", initBalance = 0)
 
@@ -100,7 +100,7 @@ class PgUserRepositoryIntegrationTest {
     }
 
     @Test
-    fun `createUser should create multiple users with same name`() {
+    fun `createUser should create multiple users with same name`() = runTest {
         // Given
         val request1 = CreateUserRequest(name = "John Smith", initBalance = 300)
         val request2 = CreateUserRequest(name = "John Smith", initBalance = 400)

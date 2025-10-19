@@ -1,54 +1,93 @@
 package org.my.firstcircletest.data.repositories.postgres.entities
 
+import org.springframework.data.domain.Persistable
+import org.springframework.data.annotation.Transient
 import arrow.core.Either
 import arrow.core.left
 import arrow.core.right
-import jakarta.persistence.*
+import org.springframework.data.annotation.Id
+import org.springframework.data.relational.core.mapping.Table
 import org.my.firstcircletest.domain.entities.Transaction
 import org.my.firstcircletest.domain.entities.TransactionStatus
 import org.my.firstcircletest.domain.entities.TransactionType
 import org.my.firstcircletest.domain.repositories.RepositoryError
 import org.slf4j.LoggerFactory
+import org.springframework.data.relational.core.mapping.Column
 import java.time.LocalDateTime
 
-@Entity
-@Table(name = "transactions")
-class TransactionEntity(
+@Table("transactions")
+data class TransactionEntity(
     @Id
-    @Column(name = "id", nullable = false)
-    var id: String = "",
+    @Column("id")
+    @get:JvmName("getEntityId")
+    val id: String,
 
-    @Column(name = "wallet_id", nullable = false)
-    var walletId: String = "",
+    @Column("wallet_id")
+    val walletId: String,
 
-    @Column(name = "user_id", nullable = false)
-    var userId: String = "",
+    @Column("user_id")
+    val userId: String,
 
-    @Column(name = "destination_wallet_id")
-    var destinationWalletId: String? = null,
+    @Column("destination_wallet_id")
+    val destinationWalletId: String? = null,
 
-    @Column(name = "destination_user_id")
-    var destinationUserId: String? = null,
+    @Column("destination_user_id")
+    val destinationUserId: String? = null,
 
-    @Column(name = "amount", nullable = false)
-    var amount: Int = 0,
+    @Column("amount")
+    val amount: Long,
 
-    @Column(name = "type", nullable = false)
-    var type: String = "",
+    @Column("type")
+    val type: String,
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    var createdAt: LocalDateTime = LocalDateTime.now(),
+    @Column("created_at")
+    val createdAt: LocalDateTime,
 
-    @Column(name = "updated_at", nullable = false)
-    var updatedAt: LocalDateTime = LocalDateTime.now(),
+    @Column("updated_at")
+    val updatedAt: LocalDateTime,
 
-    @Column(name = "status", nullable = false)
-    var status: String = ""
-) {
+    @Column("status")
+    val status: String,
+
+) : Persistable<String> {
+
+    @Transient
+    private var _isNew: Boolean = false
+
+    override fun getId(): String = id
+
+    @Transient
+    override fun isNew(): Boolean = _isNew
+
     companion object {
         private val logger = LoggerFactory.getLogger(TransactionEntity::class.java)
 
-        fun fromDomain(transaction: Transaction): TransactionEntity {
+        fun newTransactionEntity(
+            walletId: String,
+            userId: String,
+            destinationWalletId: String?,
+            destinationUserId: String?,
+            amount: Long,
+            type: TransactionType,
+            createdAt: LocalDateTime,
+            status: TransactionStatus,
+        ): TransactionEntity {
+            val id = "txn-${java.util.UUID.randomUUID()}"
+            return TransactionEntity(
+                id = id,
+                walletId = walletId,
+                userId = userId,
+                destinationWalletId = destinationWalletId,
+                destinationUserId = destinationUserId,
+                amount = amount,
+                type = type.name,
+                createdAt = createdAt,
+                updatedAt = createdAt,
+                status = status.name
+            ).apply { _isNew = true }
+        }
+
+        fun newFromDomain(transaction: Transaction): TransactionEntity {
             return TransactionEntity(
                 id = transaction.id,
                 walletId = transaction.walletId,
@@ -58,9 +97,9 @@ class TransactionEntity(
                 amount = transaction.amount,
                 type = transaction.type.name,
                 createdAt = transaction.createdAt,
-                updatedAt = transaction.updatedAt ?: LocalDateTime.now(),
-                status = transaction.status.name
-            )
+                updatedAt = transaction.createdAt,
+                status = transaction.status.name,
+            ).apply { _isNew = true }
         }
     }
 
@@ -91,17 +130,5 @@ class TransactionEntity(
             updatedAt = updatedAt,
             status = transactionStatus
         ).right()
-    }
-
-    @PrePersist
-    fun prePersist() {
-        val now = LocalDateTime.now()
-        createdAt = now
-        updatedAt = now
-    }
-
-    @PreUpdate
-    fun preUpdate() {
-        updatedAt = LocalDateTime.now()
     }
 }

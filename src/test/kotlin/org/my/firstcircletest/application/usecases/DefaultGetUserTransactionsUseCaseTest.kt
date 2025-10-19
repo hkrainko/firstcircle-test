@@ -5,9 +5,11 @@ import arrow.core.right
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import io.mockk.mockkStatic
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.my.firstcircletest.domain.entities.Transaction
 import org.my.firstcircletest.domain.entities.TransactionStatus
@@ -15,12 +17,28 @@ import org.my.firstcircletest.domain.entities.TransactionType
 import org.my.firstcircletest.domain.repositories.RepositoryError
 import org.my.firstcircletest.domain.repositories.TransactionRepository
 import org.my.firstcircletest.domain.usecases.GetUserTransactionsError
+import org.springframework.transaction.ReactiveTransaction
+import org.springframework.transaction.reactive.TransactionalOperator
+import org.springframework.transaction.reactive.executeAndAwait
 import java.time.LocalDateTime
 
 class DefaultGetUserTransactionsUseCaseTest {
 
     private val transactionRepository: TransactionRepository = mockk()
-    private val useCase = DefaultGetUserTransactionsUseCase(transactionRepository)
+    private val transactionalOperator: TransactionalOperator = mockk()
+    private val reactiveTransaction: ReactiveTransaction = mockk(relaxed = true)
+    private lateinit var useCase: DefaultGetUserTransactionsUseCase
+
+    @BeforeEach
+    fun setup() {
+        mockkStatic("org.springframework.transaction.reactive.TransactionalOperatorExtensionsKt")
+        coEvery { transactionalOperator.executeAndAwait(any<suspend (ReactiveTransaction) -> Any?>()) } coAnswers {
+            val action = arg<suspend (ReactiveTransaction) -> Any?>(1)
+            action.invoke(reactiveTransaction)
+        }
+
+        useCase = DefaultGetUserTransactionsUseCase(transactionRepository, transactionalOperator)
+    }
 
     @Test
     fun `should successfully retrieve user transactions`() = runTest {

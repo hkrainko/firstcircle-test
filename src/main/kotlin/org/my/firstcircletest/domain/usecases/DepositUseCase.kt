@@ -5,7 +5,7 @@ import org.my.firstcircletest.domain.entities.UserID
 import org.my.firstcircletest.domain.entities.Wallet
 
 interface DepositUseCase {
-    suspend fun invoke(userId: UserID, amount: Int): Either<DepositError, Wallet>
+    suspend fun invoke(userId: UserID, amount: Long): Either<DepositError, Wallet>
 }
 
 sealed class DepositError(open val message: String) {

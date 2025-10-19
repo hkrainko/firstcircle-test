@@ -8,5 +8,5 @@ data class TransferRequestDto(
     val toUserId: String,
 
     @field:ValidAmount
-    val amount: Int
+    val amount: Long
 )

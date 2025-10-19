@@ -5,5 +5,5 @@ import org.my.firstcircletest.domain.entities.CreateUserRequest
 import org.my.firstcircletest.domain.entities.User
 
 interface UserRepository {
-    fun createUser(request: CreateUserRequest): Either<RepositoryError, User>
+    suspend fun createUser(request: CreateUserRequest): Either<RepositoryError, User>
 }

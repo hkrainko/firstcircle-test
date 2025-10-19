@@ -12,7 +12,7 @@ data class Transaction(
     val userId: UserID,
     val destinationWalletId: WalletID? = null,
     val destinationUserId: UserID? = null,
-    val amount: Int,
+    val amount: Long,
     val type: TransactionType,
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime? = null,
@@ -23,7 +23,7 @@ data class Transaction(
             walletId: WalletID,
             userId: UserID,
             type: TransactionType,
-            amount: Int,
+            amount: Long,
             status: TransactionStatus
         ): Transaction {
             return Transaction(
@@ -42,7 +42,7 @@ data class Transaction(
             userId: UserID,
             destinationWalletId: WalletID,
             destinationUserId: UserID,
-            amount: Int,
+            amount: Long,
             status: TransactionStatus
         ): Transaction {
             return Transaction(

@@ -1,32 +1,27 @@
 package org.my.firstcircletest.data.repositories.postgres
 
 import arrow.core.Either
+import kotlinx.coroutines.reactive.awaitSingle
 import org.my.firstcircletest.data.repositories.postgres.entities.UserEntity
 import org.my.firstcircletest.domain.entities.CreateUserRequest
 import org.my.firstcircletest.domain.entities.User
 import org.my.firstcircletest.domain.repositories.RepositoryError
 import org.my.firstcircletest.domain.repositories.UserRepository
 import org.slf4j.LoggerFactory
-import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Repository
 import java.util.*
 
 @Repository
 class PgUserRepository(
-    private val userJpaRepository: UserJpaRepository
+    private val userReactiveRepository: UserReactiveRepository
 ) : UserRepository {
     private val logger = LoggerFactory.getLogger(PgUserRepository::class.java)
 
-    override fun createUser(request: CreateUserRequest): Either<RepositoryError, User> {
+    override suspend fun createUser(request: CreateUserRequest): Either<RepositoryError, User> {
         return Either.catch {
-            val userId = "user-${UUID.randomUUID()}"
-
-            val userEntity = UserEntity(
-                id = userId,
-                name = request.name
-            )
-
-            val saved = userJpaRepository.save(userEntity)
+            val userEntity = UserEntity.newUser(request.name)
+            val saved = userReactiveRepository.save(userEntity)
             saved.toDomain()
         }.mapLeft { e ->
             logger.error("PgUserRepo.createUser: error executing query", e)
@@ -35,4 +30,4 @@ class PgUserRepository(
     }
 }
 
-interface UserJpaRepository : JpaRepository<UserEntity, String>
+interface UserReactiveRepository : CoroutineCrudRepository<UserEntity, String>

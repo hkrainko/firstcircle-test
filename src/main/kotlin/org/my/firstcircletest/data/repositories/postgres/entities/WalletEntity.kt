@@ -1,31 +1,45 @@
 package org.my.firstcircletest.data.repositories.postgres.entities
 
-import jakarta.persistence.Column
-import jakarta.persistence.Entity
-import jakarta.persistence.Id
-import jakarta.persistence.Table
+import org.springframework.data.annotation.Id
+import org.springframework.data.annotation.Transient
+import org.springframework.data.domain.Persistable
+import org.springframework.data.relational.core.mapping.Column
+import org.springframework.data.relational.core.mapping.Table
 import org.my.firstcircletest.domain.entities.Wallet
+import java.util.UUID
 
-@Entity
-@Table(name = "wallets")
-class WalletEntity(
+@Table("wallets")
+data class WalletEntity(
     @Id
-    @Column(name = "id", nullable = false)
+    @Column("id")
+    @get:JvmName("getEntityId")
     var id: String = "",
 
-    @Column(name = "user_id", nullable = false)
+    @Column("user_id")
     var userId: String = "",
 
-    @Column(name = "balance", nullable = false)
-    var balance: Int = 0
-) {
+    @Column("balance")
+    var balance: Long = 0,
+
+) : Persistable<String> {
+
+    @Transient
+    private var _isNew: Boolean = false
+
+    override fun getId(): String = id
+
+    @Transient
+    override fun isNew(): Boolean = _isNew
+
     companion object {
-        fun fromDomain(wallet: Wallet): WalletEntity {
+        fun newWallet(userId: String, balance: Long): WalletEntity {
+            val walletId = "wallet-${UUID.randomUUID()}"
+
             return WalletEntity(
-                id = wallet.id,
-                userId = wallet.userId,
-                balance = wallet.balance
-            )
+                id = walletId,
+                userId = userId,
+                balance = balance,
+            ).apply { _isNew = true}
         }
     }
 

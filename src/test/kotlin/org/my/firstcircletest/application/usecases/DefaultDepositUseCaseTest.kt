@@ -14,31 +14,36 @@ import org.my.firstcircletest.domain.repositories.RepositoryError
 import org.my.firstcircletest.domain.repositories.TransactionRepository
 import org.my.firstcircletest.domain.repositories.WalletRepository
 import org.my.firstcircletest.domain.usecases.DepositError
+import org.springframework.transaction.ReactiveTransaction
 import org.springframework.transaction.interceptor.TransactionAspectSupport
+import org.springframework.transaction.reactive.TransactionalOperator
+import org.springframework.transaction.reactive.executeAndAwait
 
 class DefaultDepositUseCaseTest {
 
     private val walletRepository: WalletRepository = mockk()
     private val transactionRepository: TransactionRepository = mockk()
-    private val useCase = DefaultDepositUseCase(walletRepository, transactionRepository)
+    private val transactionalOperator: TransactionalOperator = mockk()
+    private val reactiveTransaction: ReactiveTransaction = mockk(relaxed = true)
+    private lateinit var useCase: DefaultDepositUseCase
 
     @BeforeEach
     fun setup() {
-        mockkStatic(TransactionAspectSupport::class)
-        every { TransactionAspectSupport.currentTransactionStatus() } returns mockk(relaxed = true)
-    }
+        mockkStatic("org.springframework.transaction.reactive.TransactionalOperatorExtensionsKt")
+        coEvery { transactionalOperator.executeAndAwait(any<suspend (ReactiveTransaction) -> Any?>()) } coAnswers {
+            val action = arg<suspend (ReactiveTransaction) -> Any?>(1)
+            action.invoke(reactiveTransaction)
+        }
 
-    @AfterEach
-    fun tearDown() {
-        unmockkStatic(TransactionAspectSupport::class)
+        useCase = DefaultDepositUseCase(walletRepository, transactionRepository, transactionalOperator)
     }
 
     @Test
     fun `should successfully deposit amount to wallet`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 500
-        val initialBalance = 1000
+        val amount = 500L
+        val initialBalance = 1000L
         val wallet = Wallet(id = "wallet123", userId = userId, balance = initialBalance)
         val updatedWallet = wallet.copy(balance = initialBalance + amount)
 
@@ -68,7 +73,7 @@ class DefaultDepositUseCaseTest {
     fun `should return InvalidUserId when userId is blank`() = runTest {
         // Given
         val userId = ""
-        val amount = 500
+        val amount = 500L
 
         // When
         val result = useCase.invoke(userId, amount)
@@ -89,7 +94,7 @@ class DefaultDepositUseCaseTest {
     fun `should return NonPositiveAmount when amount is zero`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 0
+        val amount = 0L
 
         // When
         val result = useCase.invoke(userId, amount)
@@ -110,7 +115,7 @@ class DefaultDepositUseCaseTest {
     fun `should return NonPositiveAmount when amount is negative`() = runTest {
         // Given
         val userId = "user123"
-        val amount = -100
+        val amount = -100L
 
         // When
         val result = useCase.invoke(userId, amount)
@@ -129,7 +134,7 @@ class DefaultDepositUseCaseTest {
     fun `should return WalletNotFound when wallet does not exist`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 500
+        val amount = 500L
         val repositoryError = RepositoryError.NotFound("Wallet not found")
 
         coEvery { walletRepository.getWalletByUserId(userId) } returns repositoryError.left()
@@ -154,7 +159,7 @@ class DefaultDepositUseCaseTest {
     fun `should return WalletUpdateFailed when wallet update fails`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 500
+        val amount = 500L
         val wallet = Wallet(id = "wallet123", userId = userId, balance = 1000)
         val repositoryError = RepositoryError.DatabaseError("Update failed")
 
@@ -181,7 +186,7 @@ class DefaultDepositUseCaseTest {
     fun `should return TransactionCreationFailed when transaction creation fails`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 500
+        val amount = 500L
         val wallet = Wallet(id = "wallet123", userId = userId, balance = 1000)
         val updatedWallet = wallet.copy(balance = 1500)
         val repositoryError = RepositoryError.DatabaseError("Transaction creation failed")
@@ -209,7 +214,7 @@ class DefaultDepositUseCaseTest {
     fun `should deposit large amount successfully`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 1000000
+        val amount = 1000000L
         val wallet = Wallet(id = "wallet123", userId = userId, balance = 1000)
         val updatedWallet = wallet.copy(balance = 1001000)
 
@@ -234,7 +239,7 @@ class DefaultDepositUseCaseTest {
     fun `should deposit to wallet with zero balance`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 500
+        val amount = 500L
         val wallet = Wallet(id = "wallet123", userId = userId, balance = 0)
         val updatedWallet = wallet.copy(balance = 500)
 

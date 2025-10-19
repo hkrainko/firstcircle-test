@@ -32,7 +32,7 @@ data class TransactionDto(
     val destinationWalletId: String? = null,
 
     @JsonProperty("amount")
-    val amount: Int,
+    val amount: Long,
 
     @JsonProperty("type")
     val type: String,

@@ -5,7 +5,7 @@ import org.my.firstcircletest.domain.entities.UserID
 import org.my.firstcircletest.domain.entities.Wallet
 
 interface WithdrawUseCase {
-    suspend fun invoke(userId: UserID, amount: Int): Either<WithdrawError, Wallet>
+    suspend fun invoke(userId: UserID, amount: Long): Either<WithdrawError, Wallet>
 }
 
 sealed class WithdrawError(open val message: String) {

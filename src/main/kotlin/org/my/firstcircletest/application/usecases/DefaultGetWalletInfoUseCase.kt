@@ -10,25 +10,30 @@ import org.my.firstcircletest.domain.usecases.GetWalletInfoError
 import org.my.firstcircletest.domain.usecases.GetWalletInfoUseCase
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.reactive.TransactionalOperator
+import org.springframework.transaction.reactive.executeAndAwait
 
 @Service
 class DefaultGetWalletInfoUseCase(
-    private val walletRepository: WalletRepository
+    private val walletRepository: WalletRepository,
+    private val transactionalOperator: TransactionalOperator
 ) : GetWalletInfoUseCase {
 
     private val logger = LoggerFactory.getLogger(DefaultGetWalletInfoUseCase::class.java)
 
-    @Transactional(readOnly = true)
-    override suspend fun invoke(userId: UserID): Either<GetWalletInfoError, Wallet> = either {
-        ensure(userId.isNotBlank()) {
-            logger.error("Invalid user ID: $userId")
-            GetWalletInfoError.InvalidUserId()
-        }
+    override suspend fun invoke(userId: UserID): Either<GetWalletInfoError, Wallet> {
+        return transactionalOperator.executeAndAwait { transaction ->
+            either {
+                ensure(userId.isNotBlank()) {
+                    logger.error("Invalid user ID: $userId")
+                    GetWalletInfoError.InvalidUserId()
+                }
 
-        walletRepository.getWalletByUserId(userId).mapLeft {
-            logger.error("Failed to retrieve wallet for user $userId: ${it.message}")
-            GetWalletInfoError.WalletNotFound()
-        }.onRight { logger.info("Retrieved wallet for user $userId") }.bind()
+                walletRepository.getWalletByUserId(userId).mapLeft {
+                    logger.error("Failed to retrieve wallet for user $userId: ${it.message}")
+                    GetWalletInfoError.WalletNotFound()
+                }.onRight { logger.info("Retrieved wallet for user $userId") }.bind()
+            }
+        }
     }
 }

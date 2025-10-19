@@ -2,12 +2,10 @@ package org.my.firstcircletest.delivery.http.controllers
 
 import arrow.core.left
 import arrow.core.right
-import com.fasterxml.jackson.databind.ObjectMapper
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
 import org.my.firstcircletest.delivery.http.dto.request.DepositRequestDto
 import org.my.firstcircletest.delivery.http.dto.request.TransferRequestDto
 import org.my.firstcircletest.delivery.http.dto.request.WithdrawRequestDto
@@ -15,19 +13,15 @@ import org.my.firstcircletest.domain.entities.Transfer
 import org.my.firstcircletest.domain.entities.Wallet
 import org.my.firstcircletest.domain.usecases.*
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest
+import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.http.MediaType
-import org.springframework.test.context.junit.jupiter.SpringExtension
-import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
-import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import org.springframework.test.context.ContextConfiguration
+import org.springframework.test.web.reactive.server.WebTestClient
 
-@ExtendWith(SpringExtension::class)
-@WebMvcTest(WalletController::class)
+@WebFluxTest
+@ContextConfiguration(classes = [WalletControllerTest.TestConfig::class, WalletController::class])
 class WalletControllerTest {
 
     @TestConfiguration
@@ -46,7 +40,7 @@ class WalletControllerTest {
     }
 
     @Autowired
-    private lateinit var mockMvc: MockMvc
+    private lateinit var webTestClient: WebTestClient
 
     @Autowired
     private lateinit var getWalletInfoUseCase: GetWalletInfoUseCase
@@ -60,9 +54,6 @@ class WalletControllerTest {
     @Autowired
     private lateinit var transferUseCase: TransferUseCase
 
-    @Autowired
-    private lateinit var objectMapper: ObjectMapper
-
     // GetWalletInfo Tests
     @Test
     fun `getWalletInfo should return OK with wallet data on success`() = runTest {
@@ -74,10 +65,13 @@ class WalletControllerTest {
         coEvery { getWalletInfoUseCase.invoke(userId) } returns wallet.right()
 
         // When & Then
-        mockMvc.perform(get("/api/users/$userId/wallet"))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.user_id").value(userId))
-            .andExpect(jsonPath("$.balance").value(1000))
+        webTestClient.get()
+            .uri("/api/users/$userId/wallet")
+            .exchange()
+            .expectStatus().isOk
+            .expectBody()
+            .jsonPath("$.user_id").isEqualTo(userId)
+            .jsonPath("$.balance").isEqualTo(1000)
     }
 
     @Test
@@ -89,10 +83,13 @@ class WalletControllerTest {
         coEvery { getWalletInfoUseCase.invoke(userId) } returns error.left()
 
         // When & Then
-        mockMvc.perform(get("/api/users/$userId/wallet"))
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("INVALID_USER_ID"))
-            .andExpect(jsonPath("$.message").value("Invalid user ID format"))
+        webTestClient.get()
+            .uri("/api/users/$userId/wallet")
+            .exchange()
+            .expectStatus().isBadRequest
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("INVALID_USER_ID")
+            .jsonPath("$.message").isEqualTo("Invalid user ID format")
     }
 
     @Test
@@ -104,10 +101,13 @@ class WalletControllerTest {
         coEvery { getWalletInfoUseCase.invoke(userId) } returns error.left()
 
         // When & Then
-        mockMvc.perform(get("/api/users/$userId/wallet"))
-            .andExpect(status().isNotFound)
-            .andExpect(jsonPath("$.error").value("WALLET_NOT_FOUND"))
-            .andExpect(jsonPath("$.message").value("Wallet not found for user"))
+        webTestClient.get()
+            .uri("/api/users/$userId/wallet")
+            .exchange()
+            .expectStatus().isNotFound
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("WALLET_NOT_FOUND")
+            .jsonPath("$.message").isEqualTo("Wallet not found for user")
     }
 
     // Deposit Tests
@@ -115,78 +115,81 @@ class WalletControllerTest {
     fun `deposit should return OK with updated wallet on success`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 500
+        val amount = 500L
         val requestDto = DepositRequestDto(amount = amount)
         val wallet = Wallet(id = "wallet123", userId = userId, balance = 1500)
 
         coEvery { depositUseCase.invoke(userId, amount) } returns wallet.right()
 
         // When & Then
-        mockMvc.perform(
-            post("/api/users/$userId/wallet/deposit")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.user_id").value(userId))
-            .andExpect(jsonPath("$.amount").value(1500))
+        webTestClient.post()
+            .uri("/api/users/$userId/wallet/deposit")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().isOk
+            .expectBody()
+            .jsonPath("$.user_id").isEqualTo(userId)
+            .jsonPath("$.amount").isEqualTo(1500)
     }
 
     @Test
     fun `deposit should return BAD_REQUEST for invalid user id`() = runTest {
         // Given
         val userId = "invalidUser"
-        val amount = 500
+        val amount = 500L
         val requestDto = DepositRequestDto(amount = amount)
         val error = DepositError.InvalidUserId("Invalid user ID format")
 
         coEvery { depositUseCase.invoke(userId, amount) } returns error.left()
 
         // When & Then
-        mockMvc.perform(
-            post("/api/users/$userId/wallet/deposit")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("INVALID_USER_ID"))
+        webTestClient.post()
+            .uri("/api/users/$userId/wallet/deposit")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().isBadRequest
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("INVALID_USER_ID")
     }
 
     @Test
     fun `deposit should return BAD_REQUEST for non-positive amount`() = runTest {
         // Given
         val userId = "user123"
-        val amount = -100
+        val amount = -100L
         val requestDto = DepositRequestDto(amount = amount)
 
         // When & Then
         // Note: Validation happens at DTO level before controller logic is invoked
-        mockMvc.perform(
-            post("/api/users/$userId/wallet/deposit")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isBadRequest)
+        webTestClient.post()
+            .uri("/api/users/$userId/wallet/deposit")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().isBadRequest
     }
 
     @Test
     fun `deposit should return NOT_FOUND when wallet not found`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 500
+        val amount = 500L
         val requestDto = DepositRequestDto(amount = amount)
         val error = DepositError.WalletNotFound("Wallet not found")
 
         coEvery { depositUseCase.invoke(userId, amount) } returns error.left()
 
         // When & Then
-        mockMvc.perform(
-            post("/api/users/$userId/wallet/deposit")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isNotFound)
-            .andExpect(jsonPath("$.error").value("WALLET_NOT_FOUND"))
+        webTestClient.post()
+            .uri("/api/users/$userId/wallet/deposit")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().isNotFound
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("WALLET_NOT_FOUND")
     }
 
     // Withdraw Tests
@@ -194,58 +197,60 @@ class WalletControllerTest {
     fun `withdraw should return OK with updated wallet on success`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 300
+        val amount = 300L
         val requestDto = WithdrawRequestDto(amount = amount)
         val wallet = Wallet(id = "wallet123", userId = userId, balance = 700)
 
         coEvery { withdrawUseCase.invoke(userId, amount) } returns wallet.right()
 
         // When & Then
-        mockMvc.perform(
-            post("/api/users/$userId/wallet/withdraw")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.user_id").value(userId))
-            .andExpect(jsonPath("$.balance").value(700))
+        webTestClient.post()
+            .uri("/api/users/$userId/wallet/withdraw")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().isOk
+            .expectBody()
+            .jsonPath("$.user_id").isEqualTo(userId)
+            .jsonPath("$.balance").isEqualTo(700)
     }
 
     @Test
     fun `withdraw should return BAD_REQUEST for insufficient balance`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 2000
+        val amount = 2000L
         val requestDto = WithdrawRequestDto(amount = amount)
         val error = WithdrawError.InsufficientBalance("Insufficient balance")
 
         coEvery { withdrawUseCase.invoke(userId, amount) } returns error.left()
 
         // When & Then
-        mockMvc.perform(
-            post("/api/users/$userId/wallet/withdraw")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("INSUFFICIENT_BALANCE"))
+        webTestClient.post()
+            .uri("/api/users/$userId/wallet/withdraw")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().isBadRequest
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("INSUFFICIENT_BALANCE")
     }
 
     @Test
     fun `withdraw should return BAD_REQUEST for non-positive amount`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 0
+        val amount = 0L
         val requestDto = WithdrawRequestDto(amount = amount)
 
         // When & Then
         // Note: Validation happens at DTO level before controller logic is invoked
-        mockMvc.perform(
-            post("/api/users/$userId/wallet/withdraw")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isBadRequest)
+        webTestClient.post()
+            .uri("/api/users/$userId/wallet/withdraw")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().isBadRequest
     }
 
     // Transfer Tests
@@ -254,29 +259,30 @@ class WalletControllerTest {
         // Given
         val fromUserId = "user123"
         val toUserId = "user456"
-        val amount = 200
+        val amount = 200L
         val requestDto = TransferRequestDto(toUserId = toUserId, amount = amount)
         val transfer = Transfer(fromUserId = fromUserId, toUserId = toUserId, amount = amount)
 
         coEvery { transferUseCase.invoke(transfer) } returns transfer.right()
 
         // When & Then
-        mockMvc.perform(
-            post("/api/users/$fromUserId/wallet/transfer")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.from_user_id").value(fromUserId))
-            .andExpect(jsonPath("$.to_user_id").value(toUserId))
-            .andExpect(jsonPath("$.amount").value(200))
+        webTestClient.post()
+            .uri("/api/users/$fromUserId/wallet/transfer")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().isOk
+            .expectBody()
+            .jsonPath("$.from_user_id").isEqualTo(fromUserId)
+            .jsonPath("$.to_user_id").isEqualTo(toUserId)
+            .jsonPath("$.amount").isEqualTo(200)
     }
 
     @Test
     fun `transfer should return BAD_REQUEST for same user transfer`() = runTest {
         // Given
         val userId = "user123"
-        val amount = 200
+        val amount = 200L
         val requestDto = TransferRequestDto(toUserId = userId, amount = amount)
         val transfer = Transfer(fromUserId = userId, toUserId = userId, amount = amount)
         val error = TransferError.SameUserTransfer("Cannot transfer to yourself")
@@ -284,13 +290,14 @@ class WalletControllerTest {
         coEvery { transferUseCase.invoke(transfer) } returns error.left()
 
         // When & Then
-        mockMvc.perform(
-            post("/api/users/$userId/wallet/transfer")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("SAME_USER_TRANSFER"))
+        webTestClient.post()
+            .uri("/api/users/$userId/wallet/transfer")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().isBadRequest
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("SAME_USER_TRANSFER")
     }
 
     @Test
@@ -298,7 +305,7 @@ class WalletControllerTest {
         // Given
         val fromUserId = "user123"
         val toUserId = "user456"
-        val amount = 5000
+        val amount = 5000L
         val requestDto = TransferRequestDto(toUserId = toUserId, amount = amount)
         val transfer = Transfer(fromUserId = fromUserId, toUserId = toUserId, amount = amount)
         val error = TransferError.InsufficientBalance("Insufficient balance")
@@ -306,13 +313,14 @@ class WalletControllerTest {
         coEvery { transferUseCase.invoke(transfer) } returns error.left()
 
         // When & Then
-        mockMvc.perform(
-            post("/api/users/$fromUserId/wallet/transfer")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error").value("INSUFFICIENT_BALANCE"))
+        webTestClient.post()
+            .uri("/api/users/$fromUserId/wallet/transfer")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().isBadRequest
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("INSUFFICIENT_BALANCE")
     }
 
     @Test
@@ -320,7 +328,7 @@ class WalletControllerTest {
         // Given
         val fromUserId = "user123"
         val toUserId = "nonexistent"
-        val amount = 200
+        val amount = 200L
         val requestDto = TransferRequestDto(toUserId = toUserId, amount = amount)
         val transfer = Transfer(fromUserId = fromUserId, toUserId = toUserId, amount = amount)
         val error = TransferError.WalletNotFound("Target wallet not found")
@@ -328,13 +336,14 @@ class WalletControllerTest {
         coEvery { transferUseCase.invoke(transfer) } returns error.left()
 
         // When & Then
-        mockMvc.perform(
-            post("/api/users/$fromUserId/wallet/transfer")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isNotFound)
-            .andExpect(jsonPath("$.error").value("WALLET_NOT_FOUND"))
+        webTestClient.post()
+            .uri("/api/users/$fromUserId/wallet/transfer")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().isNotFound
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("WALLET_NOT_FOUND")
     }
 
     @Test
@@ -342,7 +351,7 @@ class WalletControllerTest {
         // Given
         val fromUserId = "user123"
         val toUserId = "user456"
-        val amount = 200
+        val amount = 200L
         val requestDto = TransferRequestDto(toUserId = toUserId, amount = amount)
         val transfer = Transfer(fromUserId = fromUserId, toUserId = toUserId, amount = amount)
         val error = TransferError.WalletUpdateFailed("Database error during transfer")
@@ -350,12 +359,13 @@ class WalletControllerTest {
         coEvery { transferUseCase.invoke(transfer) } returns error.left()
 
         // When & Then
-        mockMvc.perform(
-            post("/api/users/$fromUserId/wallet/transfer")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(requestDto))
-        )
-            .andExpect(status().isInternalServerError)
-            .andExpect(jsonPath("$.error").value("WALLET_UPDATE_FAILED"))
+        webTestClient.post()
+            .uri("/api/users/$fromUserId/wallet/transfer")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(requestDto)
+            .exchange()
+            .expectStatus().is5xxServerError
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("WALLET_UPDATE_FAILED")
     }
 }

@@ -7,7 +7,7 @@ import org.my.firstcircletest.domain.entities.Wallet
 import org.my.firstcircletest.domain.entities.WalletID
 
 interface WalletRepository {
-    fun getWalletByUserId(userId: String): Either<RepositoryError, Wallet>
-    fun createWallet(request: CreateWalletRequest): Either<RepositoryError, Wallet>
-    fun updateWalletBalance(walletId: String, balance: Int): Either<RepositoryError, Wallet>
+    suspend fun getWalletByUserId(userId: String): Either<RepositoryError, Wallet>
+    suspend fun createWallet(request: CreateWalletRequest): Either<RepositoryError, Wallet>
+    suspend fun updateWalletBalance(walletId: String, balance: Long): Either<RepositoryError, Wallet>
 }

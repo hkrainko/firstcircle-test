@@ -4,5 +4,5 @@ import org.my.firstcircletest.delivery.http.validation.ValidAmount
 
 data class WithdrawRequestDto(
     @field:ValidAmount
-    val amount: Int
+    val amount: Long
 )

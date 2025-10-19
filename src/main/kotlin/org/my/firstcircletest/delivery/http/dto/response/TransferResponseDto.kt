@@ -11,7 +11,7 @@ data class TransferResponseDto(
     val toUserId: String,
 
     @JsonProperty("amount")
-    val amount: Int
+    val amount: Long
 ) {
     companion object {
         fun fromDomain(transfer: Transfer): TransferResponseDto {

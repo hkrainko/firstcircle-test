@@ -11,7 +11,7 @@ data class WalletInfoResponseDto(
     val userId: String,
 
     @JsonProperty("balance")
-    val balance: Int
+    val balance: Long
 ) {
     companion object {
         fun fromDomain(wallet: Wallet): WalletInfoResponseDto {
