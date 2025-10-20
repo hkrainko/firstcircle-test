@@ -75,7 +75,7 @@ The app uses a centralized PostgreSQL database and exposes a REST API for managi
 Base URL: `http://localhost:8080`
 
 - User
-    - POST `/users` — Create a new user.
+    - POST `/users` — Create a new user with an initial deposit, a user ID and wallet ID are returned.
     - GET `/users/{userId}/transactions` — Get transaction history for a specific user.
 
 - Wallet
@@ -109,14 +109,17 @@ Notes:
     - Use Long for fast arithmetic and predictable behavior.
     - Entire system should consistently treat balances as minor units.
 
-2) PostgreSQL with transactional guarantees
+2) Assume one user will have one wallet at this moment.
+    - Can be extended in the future for multiple wallets per user. (e.g. support for different currencies)
+
+3) PostgreSQL with transactional guarantees
     - Centralized wallet tracking with ACID transactions.
     - Concurrency and consistency are ensured via transaction boundaries.
 
-3) Clean Architecture/Layered approach
+4) Clean Architecture/Layered approach
     - Clear separation between domain, application/use cases, delivery (HTTP), data (repositories), and infrastructure.
 
-4) Testing strategy
+5) Testing strategy
     - Unit tests for use cases and domain logic.
     - Integration tests for repository and controller interactions.
     - E2E tests for full user flows via HTTP endpoints.
