@@ -5,10 +5,10 @@ import org.my.firstcircletest.domain.entities.Transaction
 import java.time.format.DateTimeFormatter
 
 data class GetUserTransactionsResponseDto(
-    @JsonProperty("user_id")
+    @field:JsonProperty("user_id")
     val userId: String,
 
-    @JsonProperty("transactions")
+    @field:JsonProperty("transactions")
     val transactions: List<TransactionDto>
 ) {
     companion object {

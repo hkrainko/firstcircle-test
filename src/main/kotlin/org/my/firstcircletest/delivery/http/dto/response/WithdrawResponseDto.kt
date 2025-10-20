@@ -4,13 +4,13 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import org.my.firstcircletest.domain.entities.Wallet
 
 data class WithdrawResponseDto(
-    @JsonProperty("wallet_id")
+    @field:JsonProperty("wallet_id")
     val walletId: String,
 
-    @JsonProperty("user_id")
+    @field:JsonProperty("user_id")
     val userId: String,
 
-    @JsonProperty("balance")
+    @field:JsonProperty("balance")
     val balance: Long
 ) {
     companion object {

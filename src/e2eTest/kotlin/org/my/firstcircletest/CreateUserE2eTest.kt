@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertNotNull
 import org.my.firstcircletest.data.repositories.postgres.UserReactiveRepository
 import org.my.firstcircletest.data.repositories.postgres.WalletReactiveRepository
 import org.my.firstcircletest.delivery.http.dto.request.CreateUserRequestDto
@@ -72,10 +73,11 @@ class CreateUserE2eTest {
     }
 
     @Test
-    fun `should successfully create user with default zero balance when not specified`() = runBlocking {
+    fun `should successfully create user with zero balance`() = runBlocking {
         // Given
         val requestDto = CreateUserRequestDto(
-            name = "Jane Smith"
+            name = "Jane Smith",
+            initBalance = 0
         )
 
         // When & Then
@@ -90,11 +92,14 @@ class CreateUserE2eTest {
             .responseBody!!
 
         assertEquals("Jane Smith", response.name)
+        assertNotNull(response.userId)
+        assertNotNull(response.walletId)
+        assertEquals(0, response.balance)
 
         // Verify wallet is created with zero balance
         val walletEntity = walletReactiveRepository.findByUserId(response.userId)
         assertNotNull(walletEntity)
-        assertEquals(0, walletEntity!!.balance)
+        assertEquals(0, walletEntity.balance)
     }
 
     @Test
@@ -190,6 +195,9 @@ class CreateUserE2eTest {
         // Then
         // Verify both users exist with different IDs
         assertNotEquals(response1.userId, response2.userId)
+        assertNotEquals(response1.walletId, response2.walletId)
+        assertEquals(500, response1.balance)
+        assertEquals(1500, response2.balance)
         assertEquals(2, userReactiveRepository.count())
         assertEquals(2, walletReactiveRepository.count())
 
@@ -199,7 +207,7 @@ class CreateUserE2eTest {
 
         assertNotNull(wallet1)
         assertNotNull(wallet2)
-        assertEquals(500, wallet1!!.balance)
-        assertEquals(1500, wallet2!!.balance)
+        assertEquals(500, wallet1.balance)
+        assertEquals(1500, wallet2.balance)
     }
 }

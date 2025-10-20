@@ -1,20 +1,28 @@
 package org.my.firstcircletest.delivery.http.dto.response
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import org.my.firstcircletest.domain.entities.User
+import org.my.firstcircletest.domain.entities.CreateUserResponse
 
 data class CreateUserResponseDto(
     @field:JsonProperty("user_id")
     val userId: String,
 
     @field:JsonProperty("name")
-    val name: String
+    val name: String,
+
+    @field:JsonProperty("wallet_id")
+    val walletId: String,
+
+    @field:JsonProperty("balance")
+    val balance: Long
 ) {
     companion object {
-        fun fromDomain(user: User): CreateUserResponseDto {
+        fun fromDomain(response: CreateUserResponse): CreateUserResponseDto {
             return CreateUserResponseDto(
-                userId = user.id,
-                name = user.name
+                userId = response.user.id,
+                name = response.user.name,
+                walletId = response.wallet.id,
+                balance = response.wallet.balance
             )
         }
     }

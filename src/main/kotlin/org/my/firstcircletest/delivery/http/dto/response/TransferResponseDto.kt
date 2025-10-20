@@ -4,13 +4,13 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import org.my.firstcircletest.domain.entities.Transfer
 
 data class TransferResponseDto(
-    @JsonProperty("from_user_id")
+    @field:JsonProperty("from_user_id")
     val fromUserId: String,
 
-    @JsonProperty("to_user_id")
+    @field:JsonProperty("to_user_id")
     val toUserId: String,
 
-    @JsonProperty("amount")
+    @field:JsonProperty("amount")
     val amount: Long
 ) {
     companion object {

@@ -10,10 +10,10 @@ data class CreateUserRequestDto(
     @field:ValidUserName
     val name: String,
 
-    @param:JsonProperty("init_balance")
+    @field:JsonProperty("init_balance")
     @field:Min(value = 0, message = "Initial balance cannot be negative")
     @field:Max(100_000_000, message = "Requested initial balance exceeds the maximum limit")
-    val initBalance: Long = 0
+    val initBalance: Long
 ) {
     fun toDomain() = CreateUserRequest(
         name = this.name,

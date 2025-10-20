@@ -30,18 +30,18 @@ class UserController(
     suspend fun createUser(
         @Valid @RequestBody requestDto: CreateUserRequestDto
     ): ResponseEntity<*> {
-        logger.info("Creating user with name: ${requestDto.name}")
+        logger.info("Creating user with name: ${requestDto.name}, balance: ${requestDto.initBalance}")
 
         return createUserUseCase.invoke(requestDto.toDomain()).fold(
             ifLeft = { error ->
                 logger.error("Failed to create user: ${error.message}")
                 handleCreateUserError(error)
             },
-            ifRight = { user ->
-                logger.info("User created successfully: ${user.id}")
+            ifRight = { createUserResponse ->
+                logger.info("User created successfully, user: ${createUserResponse.user.id}, wallet: ${createUserResponse.wallet.id}")
                 ResponseEntity
                     .status(HttpStatus.CREATED)
-                    .body(CreateUserResponseDto.fromDomain(user))
+                    .body(CreateUserResponseDto.fromDomain(createUserResponse))
             }
         )
     }
@@ -68,17 +68,21 @@ class UserController(
         return when (error) {
             is CreateUserError.UserCreationFailed -> ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponseDto(
-                    error = "USER_CREATION_FAILED",
-                    message = error.message
-                ))
+                .body(
+                    ErrorResponseDto(
+                        error = "USER_CREATION_FAILED",
+                        message = error.message
+                    )
+                )
 
             is CreateUserError.WalletCreationFailed -> ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponseDto(
-                    error = "WALLET_CREATION_FAILED",
-                    message = error.message
-                ))
+                .body(
+                    ErrorResponseDto(
+                        error = "WALLET_CREATION_FAILED",
+                        message = error.message
+                    )
+                )
         }
     }
 
@@ -86,17 +90,21 @@ class UserController(
         return when (error) {
             is GetUserTransactionsError.InvalidUserId -> ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponseDto(
-                    error = "INVALID_USER_ID",
-                    message = error.message
-                ))
+                .body(
+                    ErrorResponseDto(
+                        error = "INVALID_USER_ID",
+                        message = error.message
+                    )
+                )
 
             is GetUserTransactionsError.TransactionRetrievalFailed -> ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponseDto(
-                    error = "TRANSACTION_RETRIEVAL_FAILED",
-                    message = error.message
-                ))
+                .body(
+                    ErrorResponseDto(
+                        error = "TRANSACTION_RETRIEVAL_FAILED",
+                        message = error.message
+                    )
+                )
         }
     }
 }

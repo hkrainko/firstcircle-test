@@ -46,11 +46,15 @@ class UserControllerTest {
     @Test
     fun `createUser should return CREATED status with user data on success`() = runTest {
         // Given
-        val requestDto = CreateUserRequestDto(name = "John Doe")
+        val requestDto = CreateUserRequestDto(name = "John Doe", initBalance = 100)
         val expectedUser = User(id = "user123", name = "John Doe")
-        val createUserRequest = CreateUserRequest(name = "John Doe", initBalance = 0)
+        val createUserRequest = CreateUserRequest(name = "John Doe", initBalance = 100)
+        val createUserResponse = CreateUserResponse(
+            user = expectedUser,
+            wallet = Wallet(id = "wallet123", userId = "user123", balance = 100)
+        )
 
-        coEvery { createUserUseCase.invoke(createUserRequest) } returns expectedUser.right()
+        coEvery { createUserUseCase.invoke(createUserRequest) } returns createUserResponse.right()
 
         // When & Then
         webTestClient.post()
@@ -62,12 +66,14 @@ class UserControllerTest {
             .expectBody()
             .jsonPath("$.user_id").isEqualTo("user123")
             .jsonPath("$.name").isEqualTo("John Doe")
+            .jsonPath("$.wallet_id").isEqualTo("wallet123")
+            .jsonPath("$.balance").isEqualTo(100)
     }
 
     @Test
     fun `createUser should return INTERNAL_SERVER_ERROR when user creation fails`() = runTest {
         // Given
-        val requestDto = CreateUserRequestDto(name = "John Doe")
+        val requestDto = CreateUserRequestDto(name = "John Doe", initBalance = 0)
         val createUserRequest = CreateUserRequest(name = "John Doe", initBalance = 0)
         val error = CreateUserError.UserCreationFailed("Database error")
 
@@ -88,7 +94,7 @@ class UserControllerTest {
     @Test
     fun `createUser should return INTERNAL_SERVER_ERROR when wallet creation fails`() = runTest {
         // Given
-        val requestDto = CreateUserRequestDto(name = "John Doe")
+        val requestDto = CreateUserRequestDto(name = "John Doe", initBalance = 0)
         val createUserRequest = CreateUserRequest(name = "John Doe", initBalance = 0)
         val error = CreateUserError.WalletCreationFailed("Wallet service unavailable")
 
@@ -109,7 +115,7 @@ class UserControllerTest {
     @Test
     fun `createUser should return BAD_REQUEST when name is blank`() {
         // Given
-        val requestDto = CreateUserRequestDto(name = "")
+        val requestDto = CreateUserRequestDto(name = "", initBalance = 100)
 
         // When & Then
         webTestClient.post()

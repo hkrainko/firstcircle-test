@@ -63,9 +63,12 @@ class DefaultCreateUserUseCaseTest {
         assertTrue(result.isRight())
         result.fold(
             ifLeft = { },
-            ifRight = { createdUser ->
-                assertEquals(user.id, createdUser.id)
-                assertEquals(user.name, createdUser.name)
+            ifRight = { createdUserResponse ->
+                assertEquals(user.id, createdUserResponse.user.id)
+                assertEquals(user.name, createdUserResponse.user.name)
+                assertEquals(wallet.id, createdUserResponse.wallet.id)
+                assertEquals(wallet.userId, createdUserResponse.wallet.userId)
+                assertEquals(wallet.balance, createdUserResponse.wallet.balance)
             }
         )
 

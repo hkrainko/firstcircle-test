@@ -3,9 +3,11 @@ package org.my.firstcircletest.application.usecases
 import arrow.core.Either
 import arrow.core.raise.either
 import org.my.firstcircletest.domain.entities.CreateUserRequest
+import org.my.firstcircletest.domain.entities.CreateUserResponse
 import org.my.firstcircletest.domain.entities.CreateWalletRequest
 import org.my.firstcircletest.domain.entities.User
 import org.my.firstcircletest.domain.entities.UserID
+import org.my.firstcircletest.domain.entities.Wallet
 import org.my.firstcircletest.domain.repositories.UserRepository
 import org.my.firstcircletest.domain.repositories.WalletRepository
 import org.my.firstcircletest.domain.usecases.CreateUserError
@@ -25,7 +27,7 @@ class DefaultCreateUserUseCase(
 
     private val logger = LoggerFactory.getLogger(DefaultCreateUserUseCase::class.java)
 
-    override suspend fun invoke(request: CreateUserRequest): Either<CreateUserError, User> {
+    override suspend fun invoke(request: CreateUserRequest): Either<CreateUserError, CreateUserResponse> {
         return transactionalOperator.executeAndAwait { transaction ->
             either {
                 logger.info("Creating user with name: ${request.name} and initial balance: ${request.initBalance}")
@@ -38,19 +40,22 @@ class DefaultCreateUserUseCase(
 
                 logger.info("User created successfully: ${user.id}")
 
-                createWalletForNewUser(user.id, request.initBalance).onLeft { walletError ->
+                val wallet = createWalletForNewUser(user.id, request.initBalance).onLeft { walletError ->
                     logger.error("Failed to create wallet for user: ${user.id}, marking transaction for rollback. Error: ${walletError.message}")
                     transaction.setRollbackOnly()
                 }.bind()
 
                 logger.info("Wallet created successfully for user: ${user.id} with initial balance: ${request.initBalance}")
 
-                user
+                CreateUserResponse(
+                    user = user,
+                    wallet = wallet
+                )
             }
         }
     }
 
-    private suspend fun createWalletForNewUser(userId: UserID, initBalance: Long): Either<CreateUserError, Unit> = either {
+    private suspend fun createWalletForNewUser(userId: UserID, initBalance: Long): Either<CreateUserError, Wallet> = either {
         val request = CreateWalletRequest(
             userId = userId,
             balance = initBalance
