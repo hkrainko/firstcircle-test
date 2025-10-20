@@ -54,6 +54,20 @@ The app uses a centralized PostgreSQL database and exposes a REST API for managi
   ./gradlew e2eTest
   ```
   
+### Check E2E test for the requirements of the code challenge:
+
+* src/e2eTest/kotlin/org/my/firstcircletest
+```text
+1. A class or set of functions that allow:
+○ Account creation: Allow users to create an account with an initial deposit.
+○ Deposit: Enable users to deposit money into their account.
+○ Withdrawal: Allow users to withdraw money from their account, ensuring that overdrafts are not allowed.
+○ Transfer: Enable transferring funds between accounts.
+○ Account balance: Provide the ability to check the account balance.
+2. Database:
+○ In-memory data storage will suffice, no need to have a database alongside the project, but you can add one at your discretion
+```
+  
 ---
 
 ## HTTP API Endpoints

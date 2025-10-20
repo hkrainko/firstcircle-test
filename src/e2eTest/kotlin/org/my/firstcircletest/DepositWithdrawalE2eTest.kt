@@ -1,6 +1,5 @@
 package org.my.firstcircletest
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.*
@@ -27,9 +26,6 @@ class DepositWithdrawalE2eTest {
 
     @Autowired
     private lateinit var webTestClient: WebTestClient
-
-    @Autowired
-    private lateinit var objectMapper: ObjectMapper
 
     @Autowired
     private lateinit var userReactiveRepository: UserReactiveRepository

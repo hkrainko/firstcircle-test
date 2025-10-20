@@ -43,7 +43,6 @@ class DefaultWithdrawUseCase(
 
                 ensure(wallet.balance >= amount) {
                     logger.warn("Withdrawal denied for user $userId: Insufficient balance. Requested: $amount, Available: ${wallet.balance}, Shortfall: ${amount - wallet.balance}")
-                    transaction.setRollbackOnly()
                     WithdrawError.InsufficientBalance("Insufficient balance: requested $amount, available ${wallet.balance}")
                 }
 

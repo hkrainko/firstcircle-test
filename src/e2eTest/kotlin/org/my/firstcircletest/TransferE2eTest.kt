@@ -1,9 +1,9 @@
 package org.my.firstcircletest
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
-import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.my.firstcircletest.data.repositories.postgres.TransactionReactiveRepository
@@ -27,9 +27,6 @@ class TransferE2eTest {
 
     @Autowired
     private lateinit var webTestClient: WebTestClient
-
-    @Autowired
-    private lateinit var objectMapper: ObjectMapper
 
     @Autowired
     private lateinit var userReactiveRepository: UserReactiveRepository
