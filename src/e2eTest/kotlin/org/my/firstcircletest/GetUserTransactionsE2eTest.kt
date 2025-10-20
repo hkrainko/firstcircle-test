@@ -217,7 +217,7 @@ class GetUserTransactionsE2eTest {
     }
 
     @Test
-    fun `should return empty transactions for non-existent user ID`() {
+    fun `should return not found for non-existent user ID`() {
         // Given - A user ID that doesn't exist in the database but has valid format
         val nonExistentUserId = "user-00000000-0000-0000-0000-000000000000"
 
@@ -226,41 +226,10 @@ class GetUserTransactionsE2eTest {
             .uri("/api/users/$nonExistentUserId/transactions")
             .accept(MediaType.APPLICATION_JSON)
             .exchange()
-            .expectStatus().isOk
+            .expectStatus().isNotFound
             .expectBody()
-            .jsonPath("$.user_id").isEqualTo(nonExistentUserId)
-            .jsonPath("$.transactions").isArray
-            .jsonPath("$.transactions").isEmpty
-    }
-
-    @Test
-    fun `should return empty list for valid user ID with no transactions`() {
-        // Given - Create another user without transactions
-        val createUserRequest = CreateUserRequestDto(
-            name = "Another User",
-            initBalance = 500
-        )
-
-        val newUser = webTestClient.post()
-            .uri("/api/users")
-            .contentType(MediaType.APPLICATION_JSON)
-            .bodyValue(createUserRequest)
-            .exchange()
-            .expectStatus().isCreated
-            .expectBody(CreateUserResponseDto::class.java)
-            .returnResult()
-            .responseBody!!
-
-        // When & Then
-        webTestClient.get()
-            .uri("/api/users/${newUser.userId}/transactions")
-            .accept(MediaType.APPLICATION_JSON)
-            .exchange()
-            .expectStatus().isOk
-            .expectBody()
-            .jsonPath("$.user_id").isEqualTo(newUser.userId)
-            .jsonPath("$.transactions").isArray
-            .jsonPath("$.transactions").isEmpty
+            .jsonPath("$.error").isEqualTo("USER_NOT_FOUND")
+            .jsonPath("$.message").isEqualTo("User not found")
     }
 
     // Helper methods

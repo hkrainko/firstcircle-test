@@ -28,6 +28,20 @@ class PgUserRepository(
             RepositoryError.CreationFailed("Error creating user")
         }
     }
+
+    override suspend fun getUserById(userId: String): Either<RepositoryError, User> {
+        return Either.catch {
+            val userEntity = userReactiveRepository.findById(userId)
+            if (userEntity == null) {
+                logger.warn("PgUserRepo.getUserById: User not found with id: $userId")
+                return Either.Left(RepositoryError.NotFound("User not found with id: $userId"))
+            }
+            userEntity.toDomain()
+        }.mapLeft { e ->
+            logger.error("PgUserRepo.getUserById: error executing query", e)
+            RepositoryError.RetrievalFailed("Error retrieving user")
+        }
+    }
 }
 
 interface UserReactiveRepository : CoroutineCrudRepository<UserEntity, String>

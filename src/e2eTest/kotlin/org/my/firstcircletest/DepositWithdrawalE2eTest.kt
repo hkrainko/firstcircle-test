@@ -64,11 +64,7 @@ class DepositWithdrawalE2eTest {
             .responseBody!!
 
         testUserId = response.userId
-
-        // Get the wallet ID for the created user
-        val wallet = walletReactiveRepository.findByUserId(testUserId)
-        assertNotNull(wallet)
-        testWalletId = wallet!!.id
+        testWalletId = response.walletId
     }
 
     @Test

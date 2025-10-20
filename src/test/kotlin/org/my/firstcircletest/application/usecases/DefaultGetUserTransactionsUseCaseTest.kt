@@ -14,8 +14,10 @@ import org.junit.jupiter.api.Test
 import org.my.firstcircletest.domain.entities.Transaction
 import org.my.firstcircletest.domain.entities.TransactionStatus
 import org.my.firstcircletest.domain.entities.TransactionType
+import org.my.firstcircletest.domain.entities.User
 import org.my.firstcircletest.domain.repositories.RepositoryError
 import org.my.firstcircletest.domain.repositories.TransactionRepository
+import org.my.firstcircletest.domain.repositories.UserRepository
 import org.my.firstcircletest.domain.usecases.GetUserTransactionsError
 import org.springframework.transaction.ReactiveTransaction
 import org.springframework.transaction.reactive.TransactionalOperator
@@ -25,6 +27,7 @@ import java.time.LocalDateTime
 class DefaultGetUserTransactionsUseCaseTest {
 
     private val transactionRepository: TransactionRepository = mockk()
+    private val userRepository: UserRepository = mockk()
     private val transactionalOperator: TransactionalOperator = mockk()
     private val reactiveTransaction: ReactiveTransaction = mockk(relaxed = true)
     private lateinit var useCase: DefaultGetUserTransactionsUseCase
@@ -37,13 +40,17 @@ class DefaultGetUserTransactionsUseCaseTest {
             action.invoke(reactiveTransaction)
         }
 
-        useCase = DefaultGetUserTransactionsUseCase(transactionRepository, transactionalOperator)
+        useCase = DefaultGetUserTransactionsUseCase(transactionRepository, userRepository, transactionalOperator)
     }
 
     @Test
     fun `should successfully retrieve user transactions`() = runTest {
         // Given
         val userId = "user123"
+        val user = User(
+            id = userId,
+            name = "John Doe"
+        )
         val transactions = listOf(
             Transaction(
                 id = "tx1",
@@ -66,6 +73,7 @@ class DefaultGetUserTransactionsUseCaseTest {
         )
 
         coEvery { transactionRepository.getTransactionsByUserId(userId) } returns transactions.right()
+        coEvery { userRepository.getUserById(userId) } returns user.right()
 
         // When
         val result = useCase.invoke(userId)
@@ -87,9 +95,14 @@ class DefaultGetUserTransactionsUseCaseTest {
     fun `should return empty list when user has no transactions`() = runTest {
         // Given
         val userId = "user123"
+        val user = User(
+            id = userId,
+            name = "John Doe"
+        )
         val emptyTransactions = emptyList<Transaction>()
 
         coEvery { transactionRepository.getTransactionsByUserId(userId) } returns emptyTransactions.right()
+        coEvery { userRepository.getUserById(userId) } returns user.right()
 
         // When
         val result = useCase.invoke(userId)
@@ -128,9 +141,14 @@ class DefaultGetUserTransactionsUseCaseTest {
     fun `should return TransactionRetrievalFailed when repository fails`() = runTest {
         // Given
         val userId = "user123"
+        val user = User(
+            id = userId,
+            name = "John Doe"
+        )
         val repositoryError = RepositoryError.DatabaseError("Database connection failed")
 
         coEvery { transactionRepository.getTransactionsByUserId(userId) } returns repositoryError.left()
+        coEvery { userRepository.getUserById(userId) } returns user.right()
 
         // When
         val result = useCase.invoke(userId)
@@ -151,6 +169,10 @@ class DefaultGetUserTransactionsUseCaseTest {
     fun `should handle multiple transaction types`() = runTest {
         // Given
         val userId = "user123"
+        val user = User(
+            id = userId,
+            name = "John Doe"
+        )
         val transactions = listOf(
             Transaction(
                 id = "tx1",
@@ -184,6 +206,7 @@ class DefaultGetUserTransactionsUseCaseTest {
         )
 
         coEvery { transactionRepository.getTransactionsByUserId(userId) } returns transactions.right()
+        coEvery { userRepository.getUserById(userId) } returns user.right()
 
         // When
         val result = useCase.invoke(userId)

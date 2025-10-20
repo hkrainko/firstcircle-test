@@ -16,6 +16,7 @@ import org.springframework.transaction.reactive.executeAndAwait
 @Service
 class DefaultGetUserTransactionsUseCase(
     private val transactionRepository: TransactionRepository,
+    private val userRepository: org.my.firstcircletest.domain.repositories.UserRepository,
     private val transactionalOperator: TransactionalOperator
 ) : GetUserTransactionsUseCase {
 
@@ -28,6 +29,17 @@ class DefaultGetUserTransactionsUseCase(
                     logger.error("Invalid user ID: $userId")
                     GetUserTransactionsError.InvalidUserId()
                 }
+
+                // Check if user exists
+                userRepository.getUserById(userId).mapLeft { error ->
+                    logger.error("User not found: $userId")
+                    when (error) {
+                        is org.my.firstcircletest.domain.repositories.RepositoryError.NotFound ->
+                            GetUserTransactionsError.UserNotFound()
+                        else ->
+                            GetUserTransactionsError.TransactionRetrievalFailed("Failed to check user existence")
+                    }
+                }.bind()
 
                 transactionRepository.getTransactionsByUserId(userId).mapLeft {
                     logger.error("Failed to retrieve transactions for user $userId: ${it.message}")

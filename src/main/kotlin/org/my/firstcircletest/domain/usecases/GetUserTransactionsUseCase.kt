@@ -12,6 +12,9 @@ sealed class GetUserTransactionsError(open val message: String) {
     data class InvalidUserId(override val message: String = "User ID cannot be blank") :
         GetUserTransactionsError(message)
 
+    data class UserNotFound(override val message: String = "User not found") :
+        GetUserTransactionsError(message)
+
     data class TransactionRetrievalFailed(override val message: String = "Failed to retrieve transactions") :
         GetUserTransactionsError(message)
 }

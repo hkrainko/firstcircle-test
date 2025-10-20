@@ -104,7 +104,7 @@ Notes:
 
 ## Design Decisions and Highlights
 
-1) Monetary values as integer minor units (e.g., cents)
+1) Monetary values as integer minor units, convert to dollars (divide by 100) only when displaying on the UI. (e.g. 123 = $1.23)
     - Avoid precision issues from floating-point arithmetic.
     - Use Long for fast arithmetic and predictable behavior.
     - Entire system should consistently treat balances as minor units.

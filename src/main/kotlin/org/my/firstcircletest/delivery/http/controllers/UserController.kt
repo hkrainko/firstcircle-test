@@ -97,6 +97,15 @@ class UserController(
                     )
                 )
 
+            is GetUserTransactionsError.UserNotFound -> ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(
+                    ErrorResponseDto(
+                        error = "USER_NOT_FOUND",
+                        message = error.message
+                    )
+                )
+
             is GetUserTransactionsError.TransactionRetrievalFailed -> ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(
