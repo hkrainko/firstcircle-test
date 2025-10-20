@@ -18,6 +18,7 @@ import java.util.*
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Suppress("SpringJavaInjectionPointsAutowiringInspection")
 class PgTransactionRepositoryIntegrationTest {
 
     @Autowired

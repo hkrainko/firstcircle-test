@@ -13,6 +13,7 @@ import org.springframework.test.context.ActiveProfiles
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Suppress("SpringJavaInjectionPointsAutowiringInspection")
 class PgUserRepositoryIntegrationTest {
 
     @Autowired

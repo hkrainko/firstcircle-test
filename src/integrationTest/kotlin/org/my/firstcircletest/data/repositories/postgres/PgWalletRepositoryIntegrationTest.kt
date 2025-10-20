@@ -20,6 +20,7 @@ import java.util.*
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Suppress("SpringJavaInjectionPointsAutowiringInspection")
 class PgWalletRepositoryIntegrationTest {
 
     @Autowired
